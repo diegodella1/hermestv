@@ -409,6 +409,14 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
     return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
 
 
+@router.post("/admin/music/reload")
+async def music_reload(request: Request, _=Depends(require_api_key)):
+    from core.services import liquidsoap_client
+    ok = await liquidsoap_client.reload_playlist()
+    msg = "Playlist reloaded" if ok else "Failed to reload (Liquidsoap not connected)"
+    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
+
+
 # --- Breaking page ---
 @router.get("/admin/breaking", response_class=HTMLResponse)
 async def breaking_page(request: Request, _=Depends(require_api_key)):

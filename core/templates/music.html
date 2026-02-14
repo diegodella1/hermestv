@@ -19,7 +19,14 @@
 {% endif %}
 
 <article>
-    <header>{{ files|length }} track{{ 's' if files|length != 1 else '' }} in library ({{ total_size_mb }} MB total)</header>
+    <header>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <span>{{ files|length }} track{{ 's' if files|length != 1 else '' }} in library ({{ total_size_mb }} MB total)</span>
+            <form action="/admin/music/reload" method="post" style="margin:0">
+                <button type="submit" class="outline" style="padding:4px 14px;margin:0">Reload Playlist</button>
+            </form>
+        </div>
+    </header>
     {% if files %}
     <figure>
         <table>

@@ -93,6 +93,12 @@ async def skip_track() -> bool:
     return result is not None
 
 
+async def reload_playlist() -> bool:
+    """Tell Liquidsoap to reload the music playlist."""
+    result = await send_command("music.reload")
+    return result is not None
+
+
 async def heartbeat() -> bool:
     """Check if Liquidsoap is responsive."""
     result = await send_command("version")
