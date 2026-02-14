@@ -19,7 +19,7 @@ _sessions: set[str] = set()
 
 
 async def require_api_key(request: Request):
-    """Check API key from header or session cookie."""
+    """Check API key from header or session cookie. Redirects browsers to login."""
     # Check header
     api_key = request.headers.get("X-API-Key")
     if api_key == HERMES_API_KEY:
@@ -29,6 +29,14 @@ async def require_api_key(request: Request):
     session = request.cookies.get("hermes_session")
     if session in _sessions:
         return True
+
+    # Browser requests: redirect to login instead of JSON 401
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        raise HTTPException(
+            status_code=307,
+            headers={"Location": "/admin/login"},
+        )
 
     raise HTTPException(status_code=401, detail="Unauthorized")
 
