@@ -1,0 +1,11 @@
+.git
+.claude
+.gitignore
+.dockerignore
+prdhermes.md
+venv
+__pycache__
+*.pyc
+*.pyo
+models/*.onnx
+models/*.json

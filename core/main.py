@@ -5,13 +5,15 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 # Ensure core package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from core.config import HLS_DIR
 from core.database import init_db, close_db
 from core.routers import playout, status
 from core.services import liquidsoap_client
@@ -41,10 +43,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Hermes Radio", version="0.1.0", lifespan=lifespan)
 
-# Static files
+# CORS — needed for HLS players in browsers
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "HEAD", "OPTIONS"],
+    allow_headers=["Range"],
+    expose_headers=["Content-Length", "Content-Range"],
+)
+
+# Static files (CSS/JS)
 static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# HLS stream files — served directly by FastAPI (no Caddy needed in Docker)
+hls_dir = Path(str(HLS_DIR))
+os.makedirs(str(hls_dir), exist_ok=True)
+app.mount("/hls", StaticFiles(directory=str(hls_dir)), name="hls")
 
 # Templates
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
