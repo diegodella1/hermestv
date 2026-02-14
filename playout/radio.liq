@@ -107,7 +107,7 @@ server.register(
   end
 )
 
-# --- Output: WAV to stdout (piped to FFmpeg) ---
+# --- Output: WAV to named pipe (FIFO read by FFmpeg) ---
 output.file(
   %wav(
     stereo=true,
@@ -117,6 +117,6 @@ output.file(
   ),
   fallible=false,
   reopen_on_metadata=false,
-  "/dev/stdout",
+  "/tmp/hermes_audio.fifo",
   radio
 )

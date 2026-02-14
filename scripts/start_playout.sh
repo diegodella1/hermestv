@@ -1,22 +1,38 @@
 #!/bin/bash
-# Hermes Radio — Start playout pipeline (Liquidsoap | FFmpeg → HLS)
+# Hermes Radio — Start playout pipeline (Liquidsoap → FIFO → FFmpeg → HLS)
+# Uses a named pipe (FIFO) instead of stdout to avoid broken pipe issues in 2.1.x
 
-set -euo pipefail
+set -eu
 
 HLS_DIR="${HERMES_HLS_DIR:-/tmp/hls}"
+FIFO="/tmp/hermes_audio.fifo"
+LOGS="/opt/hermes/data/logs"
 
-# Ensure HLS directory exists
-mkdir -p "$HLS_DIR"
+# Ensure directories exist
+mkdir -p "$HLS_DIR" "$LOGS"
 
 # Clean stale segments
 rm -f "$HLS_DIR"/*.ts "$HLS_DIR"/*.m4s "$HLS_DIR"/*.m3u8 "$HLS_DIR"/*.mp4
 
-echo "[playout] Starting Liquidsoap | FFmpeg pipeline..."
+# Create FIFO
+rm -f "$FIFO"
+mkfifo "$FIFO"
+
+echo "[playout] Starting playout pipeline..."
 echo "[playout] HLS output: $HLS_DIR/radio.m3u8"
 
-liquidsoap /opt/hermes/playout/radio.liq 2>>/opt/hermes/data/logs/liquidsoap_stderr.log | \
+# Cleanup on exit
+cleanup() {
+    echo "[playout] Shutting down..."
+    kill $FFMPEG_PID $LIQ_PID 2>/dev/null || true
+    rm -f "$FIFO"
+    exit 0
+}
+trap cleanup EXIT TERM INT
+
+# Start FFmpeg reading from FIFO (background)
 ffmpeg -hide_banner -loglevel warning \
-  -f wav -i pipe:0 \
+  -f wav -i "$FIFO" \
   -c:a aac -b:a 128k -ar 44100 -ac 2 \
   -f hls \
   -hls_time 4 \
@@ -25,4 +41,12 @@ ffmpeg -hide_banner -loglevel warning \
   -hls_segment_type mpegts \
   -hls_segment_filename "$HLS_DIR/radio_%03d.ts" \
   "$HLS_DIR/radio.m3u8" \
-  2>>/opt/hermes/data/logs/ffmpeg_stderr.log
+  2>>"$LOGS/ffmpeg_stderr.log" &
+FFMPEG_PID=$!
+
+# Start Liquidsoap writing to FIFO (foreground — supervisord monitors this)
+liquidsoap /opt/hermes/playout/radio.liq 2>>"$LOGS/liquidsoap_stderr.log"
+LIQ_PID=$!
+
+# Wait for Liquidsoap (if it exits, everything shuts down)
+wait $LIQ_PID
