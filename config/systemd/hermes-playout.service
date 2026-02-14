@@ -1,0 +1,20 @@
+[Unit]
+Description=Hermes Radio Playout (Liquidsoap + FFmpeg HLS)
+After=network.target local-fs.target
+Wants=hermes-core.service
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+WorkingDirectory=/opt/hermes
+ExecStart=/opt/hermes/scripts/start_playout.sh
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+MemoryMax=512M
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target

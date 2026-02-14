@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Hermes Radio{% endblock %}
+{% block content %}
+<h2>Dashboard</h2>
+
+<div class="grid">
+    <article>
+        <header>Now Playing</header>
+        <p>Tracks since last break: <strong>{{ track_count if track_count is not none else '?' }}</strong></p>
+        <p>Quiet mode: <strong>{{ 'ON' if quiet_mode else 'OFF' }}</strong></p>
+    </article>
+
+    <article>
+        <header>Today's Stats</header>
+        <p>Breaks played: <strong>{{ breaks_played }}</strong></p>
+        <p>Breaks failed: <strong>{{ breaks_failed }}</strong></p>
+    </article>
+
+    <article>
+        <header>Feed Health</header>
+        {% for status, count in feed_health.items() %}
+        <p>
+            <span class="badge badge-{{ 'ok' if status == 'healthy' else 'warn' if status == 'unhealthy' else 'err' }}">
+                {{ status }}
+            </span>
+            {{ count }} feed(s)
+        </p>
+        {% endfor %}
+    </article>
+</div>
+
+{% if last_break %}
+<article>
+    <header>Last Break</header>
+    <p><strong>ID:</strong> {{ last_break.id }}</p>
+    <p><strong>Type:</strong> {{ last_break.type }}</p>
+    <p><strong>Host:</strong> {{ last_break.host_id }}</p>
+    <p><strong>Played at:</strong> {{ last_break.played_at }}</p>
+    <p><strong>Degradation:</strong> Level {{ last_break.degradation_level }}</p>
+    {% if last_break.script_text %}
+    <details>
+        <summary>Script</summary>
+        <p>{{ last_break.script_text }}</p>
+    </details>
+    {% endif %}
+</article>
+{% endif %}
+
+<article>
+    <header>Stream</header>
+    <p>HLS URL: <code>http://{{ request.headers.get('host', 'localhost:8180') }}/hls/radio.m3u8</code></p>
+    <audio controls>
+        <source src="/hls/radio.m3u8" type="application/vnd.apple.mpegurl">
+    </audio>
+</article>
+{% endblock %}

@@ -1,0 +1,7 @@
+<div id="health-badges">
+    {% for status, count in feed_health.items() %}
+    <span class="badge badge-{{ 'ok' if status == 'healthy' else 'warn' if status == 'unhealthy' else 'err' }}">
+        {{ status }}: {{ count }}
+    </span>
+    {% endfor %}
+</div>

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Hosts - Hermes Radio{% endblock %}
+{% block content %}
+<h2>AI Hosts</h2>
+
+{% for host in hosts %}
+<article>
+    <header>{{ host.label }} ({{ host.id }}) — {{ host.piper_model }}</header>
+    <form method="post" action="/admin/hosts/{{ host.id }}">
+        <div class="grid">
+            <label>
+                Name
+                <input type="text" name="label" value="{{ host.label }}">
+            </label>
+            <label>
+                <input type="checkbox" name="enabled" {{ 'checked' if host.enabled else '' }}>
+                Enabled
+            </label>
+            <label>
+                <input type="checkbox" name="is_breaking_host" {{ 'checked' if host.is_breaking_host else '' }}>
+                Breaking Host
+            </label>
+        </div>
+        <label>
+            Personality Prompt
+            <textarea name="personality_prompt" rows="4">{{ host.personality_prompt }}</textarea>
+        </label>
+        <button type="submit">Save</button>
+    </form>
+</article>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,64 @@
+# Hermes Radio — Caddy Configuration
+
+{
+    auto_https off
+}
+
+:8180 {
+    # --- HLS Stream ---
+    handle /hls/* {
+        root * /tmp
+        file_server
+
+        header {
+            Access-Control-Allow-Origin *
+            Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+            Access-Control-Allow-Headers "Range"
+            Access-Control-Expose-Headers "Content-Length, Content-Range"
+        }
+
+        @m3u8 path *.m3u8
+        header @m3u8 {
+            Cache-Control "no-cache, no-store, must-revalidate"
+            Pragma "no-cache"
+            Content-Type "application/vnd.apple.mpegurl"
+        }
+
+        @segments path *.ts *.m4s
+        header @segments {
+            Cache-Control "max-age=10"
+        }
+
+        @init path *_init.mp4
+        header @init {
+            Cache-Control "max-age=86400"
+        }
+    }
+
+    # --- API ---
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8100
+    }
+
+    # --- Admin UI ---
+    handle /admin/* {
+        reverse_proxy 127.0.0.1:8100
+    }
+
+    # --- Static files ---
+    handle /static/* {
+        reverse_proxy 127.0.0.1:8100
+    }
+
+    # --- Root redirect ---
+    handle / {
+        redir /admin/ permanent
+    }
+
+    log {
+        output file /opt/hermes/data/logs/caddy.log {
+            roll_size 10MB
+            roll_keep 3
+        }
+    }
+}

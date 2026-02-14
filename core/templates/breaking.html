@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Breaking - Hermes Radio{% endblock %}
+{% block content %}
+<h2>Breaking News</h2>
+
+<article>
+    <p>Trigger a breaking news interrupt. This will:</p>
+    <ol>
+        <li>Immediately inject a "Quick update" sting</li>
+        <li>Generate a breaking news clip async</li>
+        <li>Inject the clip when ready</li>
+    </ol>
+
+    <form id="breaking-form">
+        <label>
+            Note (optional context)
+            <textarea name="note" rows="3" placeholder="What's the breaking news about?"></textarea>
+        </label>
+        <button type="submit" class="contrast">Trigger Breaking</button>
+    </form>
+
+    <div id="result" style="margin-top: 1rem;"></div>
+</article>
+
+<script>
+document.getElementById('breaking-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const note = e.target.note.value;
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = '<p>Triggering...</p>';
+
+    try {
+        const resp = await fetch('/api/breaking/trigger', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({reason: 'MANUAL', note})
+        });
+        const data = await resp.json();
+        resultDiv.innerHTML = `<p>Status: <strong>${data.status}</strong></p>
+            <p>Sting injected: ${data.sting_injected}</p>
+            <p>Clip ETA: ~${data.clip_eta_seconds}s</p>`;
+    } catch (err) {
+        resultDiv.innerHTML = `<p style="color: var(--pico-del-color);">Error: ${err.message}</p>`;
+    }
+});
+</script>
+{% endblock %}

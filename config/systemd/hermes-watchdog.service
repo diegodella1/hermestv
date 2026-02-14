@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Radio Watchdog
+After=hermes-playout.service hermes-core.service hermes-caddy.service
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+ExecStart=/opt/hermes/scripts/watchdog.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

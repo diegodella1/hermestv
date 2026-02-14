@@ -1,0 +1,18 @@
+<table>
+    <thead>
+        <tr>
+            <th>Timestamp</th>
+            <th>Event</th>
+            <th>Latency</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.timestamp }}</td>
+            <td>{{ log.event_type }}</td>
+            <td>{{ log.latency_ms or '-' }}ms</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

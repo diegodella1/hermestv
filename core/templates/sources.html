@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Sources - Hermes Radio{% endblock %}
+{% block content %}
+<h2>News Sources</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Label</th>
+            <th>URL</th>
+            <th>Category</th>
+            <th>Weight</th>
+            <th>Health</th>
+            <th>Failures</th>
+            <th>Enabled</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for src in sources %}
+        <tr>
+            <td>{{ src.label }}</td>
+            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ src.url }}</td>
+            <td>{{ src.category }}</td>
+            <td>{{ src.weight }}</td>
+            <td>
+                <span class="badge badge-{{ 'ok' if src.health_status == 'healthy' else 'warn' if src.health_status == 'unhealthy' else 'err' }}">
+                    {{ src.health_status or 'unknown' }}
+                </span>
+            </td>
+            <td>{{ src.consecutive_failures or 0 }}</td>
+            <td>{{ 'Yes' if src.enabled else 'No' }}</td>
+            <td>
+                <form method="post" action="/admin/sources/{{ src.id }}/delete" style="display:inline">
+                    <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; margin: 0;">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<details>
+    <summary>Add Source</summary>
+    <form method="post" action="/admin/sources">
+        <div class="grid">
+            <label>
+                Label
+                <input type="text" name="label" required>
+            </label>
+            <label>
+                URL
+                <input type="url" name="url" required>
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Category
+                <input type="text" name="category" value="general">
+            </label>
+            <label>
+                Weight
+                <input type="number" name="weight" value="1.0" step="0.1">
+            </label>
+            <label>
+                Poll interval (s)
+                <input type="number" name="poll_interval_seconds" value="300">
+            </label>
+        </div>
+        <label>
+            <input type="checkbox" name="enabled" checked>
+            Enabled
+        </label>
+        <button type="submit">Add Source</button>
+    </form>
+</details>
+{% endblock %}

@@ -1,0 +1,14 @@
+[Unit]
+Description=Hermes Radio Web Server (Caddy)
+After=network.target
+
+[Service]
+Type=simple
+User=hermes
+Group=hermes
+ExecStart=/usr/bin/caddy run --config /opt/hermes/config/caddy/Caddyfile
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

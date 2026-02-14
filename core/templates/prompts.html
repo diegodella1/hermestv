@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Prompts - Hermes Radio{% endblock %}
+{% block content %}
+<h2>Master Prompt</h2>
+
+<form method="post" action="/admin/prompts">
+    <label>
+        Master prompt (applied to all hosts):
+        <textarea name="master_prompt" rows="15">{{ master_prompt }}</textarea>
+    </label>
+    <button type="submit">Save</button>
+</form>
+
+<p><small>Individual host prompts are edited on the <a href="/admin/hosts">Hosts</a> page.</small></p>
+{% endblock %}

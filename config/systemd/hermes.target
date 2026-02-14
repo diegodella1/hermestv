@@ -1,0 +1,6 @@
+[Unit]
+Description=Hermes Radio - All Services
+Wants=hermes-playout.service hermes-core.service hermes-caddy.service hermes-watchdog.service
+
+[Install]
+WantedBy=multi-user.target
