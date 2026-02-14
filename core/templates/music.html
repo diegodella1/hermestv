@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Music — Hermes Radio{% endblock %}
+{% block content %}
+<h2>Music Library</h2>
+
+<article>
+    <header>Upload MP3</header>
+    <form action="/admin/music/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="files" accept=".mp3,audio/mpeg" multiple required>
+        <small>Select one or more .mp3 files (max 50 MB each)</small>
+        <button type="submit">Upload</button>
+    </form>
+</article>
+
+{% if message %}
+<article style="border-left: 3px solid var(--pico-primary);">
+    {{ message }}
+</article>
+{% endif %}
+
+<article>
+    <header>{{ files|length }} track{{ 's' if files|length != 1 else '' }} in library ({{ total_size_mb }} MB total)</header>
+    {% if files %}
+    <figure>
+        <table>
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Size</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in files %}
+                <tr>
+                    <td>{{ f.name }}</td>
+                    <td>{{ f.size_mb }} MB</td>
+                    <td>
+                        <form action="/admin/music/delete" method="post" style="margin:0"
+                              onsubmit="return confirm('Delete {{ f.name }}?')">
+                            <input type="hidden" name="filename" value="{{ f.name }}">
+                            <button type="submit" class="outline secondary" style="padding:4px 10px;margin:0">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </figure>
+    {% else %}
+    <p>No MP3 files yet. Upload some to get started.</p>
+    {% endif %}
+</article>
+{% endblock %}

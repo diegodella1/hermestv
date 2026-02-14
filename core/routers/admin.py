@@ -4,11 +4,11 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import HERMES_API_KEY
+from core.config import HERMES_API_KEY, MUSIC_DIR
 from core.database import get_db
 
 router = APIRouter(tags=["admin"])
@@ -331,6 +331,82 @@ async def update_prompts(request: Request, _=Depends(require_api_key)):
     )
     await db.commit()
     return RedirectResponse("/admin/prompts", status_code=303)
+
+
+# --- Music Library ---
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB per file
+
+
+def _list_music_files():
+    """List MP3 files in music dir with sizes."""
+    files = []
+    if MUSIC_DIR.exists():
+        for f in sorted(MUSIC_DIR.glob("*.mp3")):
+            size = f.stat().st_size
+            files.append({"name": f.name, "size_mb": round(size / 1024 / 1024, 1)})
+    total = sum(f["size_mb"] for f in files)
+    return files, round(total, 1)
+
+
+@router.get("/admin/music", response_class=HTMLResponse)
+async def music_page(request: Request, _=Depends(require_api_key)):
+    files, total = _list_music_files()
+    return templates.TemplateResponse("music.html", {
+        "request": request,
+        "files": files,
+        "total_size_mb": total,
+        "message": request.query_params.get("msg"),
+    })
+
+
+@router.post("/admin/music/upload")
+async def music_upload(
+    request: Request,
+    _=Depends(require_api_key),
+    files: list[UploadFile] = File(...),
+):
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
+    uploaded = 0
+    skipped = []
+
+    for f in files:
+        if not f.filename or not f.filename.lower().endswith(".mp3"):
+            skipped.append(f.filename or "unknown")
+            continue
+
+        # Sanitize filename
+        safe_name = Path(f.filename).name
+        dest = MUSIC_DIR / safe_name
+
+        # Read with size limit
+        data = await f.read(MAX_UPLOAD_SIZE + 1)
+        if len(data) > MAX_UPLOAD_SIZE:
+            skipped.append(f"{safe_name} (too large)")
+            continue
+
+        dest.write_bytes(data)
+        uploaded += 1
+
+    msg = f"Uploaded {uploaded} file(s)."
+    if skipped:
+        msg += f" Skipped: {', '.join(skipped)}"
+    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
+
+
+@router.post("/admin/music/delete")
+async def music_delete(request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    filename = form.get("filename", "")
+    # Prevent path traversal
+    safe_name = Path(filename).name
+    target = MUSIC_DIR / safe_name
+
+    if target.exists() and target.suffix.lower() == ".mp3":
+        target.unlink()
+        msg = f"Deleted {safe_name}"
+    else:
+        msg = f"File not found: {safe_name}"
+    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
 
 
 # --- Breaking page ---
