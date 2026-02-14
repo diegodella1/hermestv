@@ -5,6 +5,9 @@
 # Compatible with Liquidsoap 2.1.3 (Debian bookworm apt)
 # ============================================================
 
+# --- Allow running as root (Docker) ---
+set("init.allow_root", true)
+
 # --- Logging ---
 set("log.file.path", "/opt/hermes/data/logs/liquidsoap.log")
 set("log.stdout", true)
