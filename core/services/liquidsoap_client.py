@@ -26,6 +26,7 @@ async def _ensure_connected():
 
 async def send_command(cmd: str) -> str | None:
     """Send a command to Liquidsoap and return the response."""
+    global _reader, _writer
     async with _lock:
         await _ensure_connected()
         if _writer is None:
