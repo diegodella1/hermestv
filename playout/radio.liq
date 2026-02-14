@@ -2,7 +2,7 @@
 
 # ============================================================
 # Hermes Radio — Liquidsoap Playout Script
-# Compatible with Liquidsoap 2.1.x (Debian apt)
+# Compatible with Liquidsoap 2.1.3 (Debian bookworm apt)
 # ============================================================
 
 # --- Logging ---
@@ -39,34 +39,19 @@ security = blank(id="security")
 # --- Track counter + webhook to FastAPI ---
 track_count = ref(0)
 
-def on_track_change(m) =
-  track_count := !track_count + 1
+music.on_track(fun(m) -> begin
+  track_count := !track_count + 1;
 
-  artist = m["artist"]
-  title = m["title"]
-  filename = m["filename"]
-
-  payload = '{"event":"TRACK_ENDED","track":{"artist":"' ^ artist ^ '","title":"' ^ title ^ '","filename":"' ^ filename ^ '"},"tracks_since_last_break":' ^ string_of(!track_count) ^ '}'
+  payload = '{"event":"TRACK_ENDED","track":{"artist":"' ^ m["artist"] ^ '","title":"' ^ m["title"] ^ '","filename":"' ^ m["filename"] ^ '"},"tracks_since_last_break":' ^ string_of(!track_count) ^ '}';
 
   ignore(
     http.post(
       headers=[("Content-Type", "application/json")],
       data=payload,
-      timeout=5.0,
       "http://127.0.0.1:8100/api/playout/event"
     )
   )
-end
-
-music = on_track(on_track_change, music)
-
-# --- Crossfade ---
-music = crossfade(
-  duration=3.0,
-  fade_out=2.5,
-  fade_in=0.5,
-  music
-)
+end)
 
 # --- Composition ---
 # Breaks: track-sensitive (wait for current track to end)
@@ -93,7 +78,7 @@ server.register(
   usage="reset_counter",
   "reset_counter",
   fun(_) -> begin
-    track_count := 0
+    track_count := 0;
     "Counter reset to 0"
   end
 )
@@ -114,7 +99,7 @@ server.register(
   usage="skip",
   "skip",
   fun(_) -> begin
-    source.skip(radio)
+    source.skip(radio);
     "Skipped"
   end
 )
