@@ -78,6 +78,7 @@ radio = cross(duration=3.0, fun(a, b) ->
     fade.in(duration=1.5, b.source)
   ])
 , radio)
+radio = mksafe(radio)
 
 # Stings: not track-sensitive (interrupt immediately)
 radio = fallback(
