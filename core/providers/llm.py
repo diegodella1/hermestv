@@ -93,6 +93,7 @@ async def generate_break_script(
     host: dict,
     master_prompt: str,
     is_breaking: bool = False,
+    recent_tracks: list[dict] | None = None,
 ) -> str | None:
     """Generate a radio break script using GPT-4o-mini."""
     client = _get_client()
@@ -103,7 +104,7 @@ async def generate_break_script(
     if is_breaking:
         system += "\n\nThis is a BREAKING NEWS break. Be more urgent. 20-35 words max."
 
-    context = _format_context(weather_data, headlines)
+    context = _format_context(weather_data, headlines, recent_tracks)
 
     try:
         t0 = time.time()
@@ -138,8 +139,20 @@ async def generate_break_script(
         return None
 
 
-def _format_context(weather_data: list[dict], headlines: list[dict]) -> str:
+def _format_context(weather_data: list[dict], headlines: list[dict], recent_tracks: list[dict] | None = None) -> str:
     parts = []
+
+    if recent_tracks:
+        parts.append("RECENTLY PLAYED TRACKS (most recent first):")
+        for i, t in enumerate(recent_tracks, 1):
+            artist = t.get("artist", "Unknown Artist")
+            title = t.get("title", "Unknown Title")
+            if artist and artist != "Unknown":
+                parts.append(f"{i}. \"{title}\" by {artist}")
+            else:
+                parts.append(f"{i}. \"{title}\"")
+        parts.append("(You can reference these tracks naturally — e.g. 'That was [title] by [artist]' or 'Hope you enjoyed [title]'. Don't list all of them, just mention 1-2 naturally.)")
+        parts.append("")
 
     if weather_data:
         parts.append("WEATHER DATA:")

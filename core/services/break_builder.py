@@ -15,7 +15,7 @@ from core.services import (
 )
 
 
-async def prepare_break(is_breaking: bool = False, breaking_note: str = ""):
+async def prepare_break(is_breaking: bool = False, breaking_note: str = "", recent_tracks: list[dict] | None = None):
     """
     Full break generation pipeline:
     1. Fetch weather
@@ -91,7 +91,8 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = ""):
         # 3. Generate script
         master_prompt = settings.get("master_prompt", "You are a radio host.")
         script = await llm.generate_break_script(
-            weather_data, headlines, host, master_prompt, is_breaking
+            weather_data, headlines, host, master_prompt, is_breaking,
+            recent_tracks=recent_tracks,
         )
 
         # 4. Fallback if LLM failed

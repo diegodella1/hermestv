@@ -13,6 +13,15 @@ router = APIRouter(prefix="/api/playout", tags=["playout"])
 # Will be set by main.py after break_builder is imported
 _prepare_break_fn = None
 
+# Recent tracks (in-memory ring buffer for LLM context)
+_recent_tracks: list[dict] = []
+MAX_RECENT = 10
+
+
+def get_recent_tracks(n: int = 4) -> list[dict]:
+    """Return last N played tracks (newest first)."""
+    return list(reversed(_recent_tracks[-n:]))
+
 
 def set_prepare_break_fn(fn):
     global _prepare_break_fn
@@ -30,6 +39,16 @@ async def playout_event(request: Request, body: dict):
     event = body.get("event")
     track_count = body.get("tracks_since_last_break", 0)
     track_info = body.get("track", {})
+
+    # Store in recent tracks buffer
+    if track_info.get("artist") or track_info.get("title"):
+        _recent_tracks.append({
+            "artist": track_info.get("artist", "Unknown"),
+            "title": track_info.get("title", "Unknown"),
+            "filename": track_info.get("filename", ""),
+        })
+        if len(_recent_tracks) > MAX_RECENT:
+            _recent_tracks.pop(0)
 
     db = await get_db()
 
@@ -54,7 +73,8 @@ async def playout_event(request: Request, body: dict):
 
     if not quiet_mode and track_count == prepare_at and _prepare_break_fn:
         action = "prepare_break"
-        # Fire-and-forget break preparation
-        asyncio.create_task(_prepare_break_fn())
+        # Fire-and-forget break preparation with recent tracks context
+        recent = get_recent_tracks(4)
+        asyncio.create_task(_prepare_break_fn(recent_tracks=recent))
 
     return {"status": "ok", "action": action, "track_count": track_count}
