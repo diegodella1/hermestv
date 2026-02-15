@@ -21,6 +21,13 @@ mkfifo "$FIFO"
 echo "[playout] Starting playout pipeline..."
 echo "[playout] HLS output: $HLS_DIR/radio.m3u8"
 
+# Generate playlist file from music directory
+PLAYLIST="/opt/hermes/music/playlist.m3u"
+echo "[playout] Generating playlist..."
+find /opt/hermes/music/ -maxdepth 1 -iname '*.mp3' -type f | sort > "$PLAYLIST"
+echo "[playout] Playlist: $(wc -l < "$PLAYLIST") tracks"
+cat "$PLAYLIST"
+
 # Cleanup on exit
 cleanup() {
     echo "[playout] Shutting down..."

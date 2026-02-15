@@ -411,9 +411,17 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
 
 @router.post("/admin/music/reload")
 async def music_reload(request: Request, _=Depends(require_api_key)):
+    import asyncio as _asyncio
+
+    # Regenerate the .m3u playlist file
+    m3u_path = MUSIC_DIR / "playlist.m3u"
+    mp3s = sorted(MUSIC_DIR.glob("*.mp3"))
+    m3u_path.write_text("\n".join(str(f) for f in mp3s) + "\n" if mp3s else "")
+
+    # Tell Liquidsoap to reload
     from core.services import liquidsoap_client
     ok = await liquidsoap_client.reload_playlist()
-    msg = "Playlist reloaded" if ok else "Failed to reload (Liquidsoap not connected)"
+    msg = f"Playlist updated ({len(mp3s)} tracks)" if ok else f"Playlist file updated ({len(mp3s)} tracks) but Liquidsoap not connected"
     return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
 
 
