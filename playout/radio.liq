@@ -57,22 +57,18 @@ music.on_track(fun(m) -> begin
 end)
 
 # --- Composition ---
-# Apply fades to individual sources (stable with FIFO output, unlike cross())
-music_faded = fade.final(duration=2.5, music)
-breaks_faded = fade.initial(duration=1.5, breaks)
-
 # Music with safety: always falls back to blank if music not ready yet
 safe_music = fallback(
   id="safe_music",
   track_sensitive=false,
-  [music_faded, blank(id="security")]
+  [music, blank(id="security")]
 )
 
 # Breaks: track-sensitive (wait for current track to end)
 radio = fallback(
   id="radio",
   track_sensitive=true,
-  [breaks_faded, safe_music]
+  [breaks, safe_music]
 )
 
 # Stings: not track-sensitive (interrupt immediately)
