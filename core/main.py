@@ -5,8 +5,9 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -70,6 +71,11 @@ app.include_router(playout.router)
 app.include_router(status.router)
 
 # Lazy-load optional routers
+@app.get("/", response_class=HTMLResponse)
+async def player_page(request: Request):
+    return templates.TemplateResponse("player.html", {"request": request})
+
+
 try:
     from core.routers import admin
     app.include_router(admin.router)

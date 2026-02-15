@@ -1,5 +1,6 @@
-"""Status router — health check and now-playing info."""
+"""Status router — health check, now-playing info, playout control."""
 
+import asyncio
 import os
 import time
 from datetime import datetime, timezone
@@ -102,6 +103,43 @@ async def health():
             "breaks_failed": (stats_row["failed"] or 0) if stats_row else 0,
         },
     }
+
+
+async def _supervisorctl(action: str) -> tuple[bool, str]:
+    """Run supervisorctl command and return (success, output)."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "supervisorctl", action, "playout",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+        output = stdout.decode().strip()
+        return proc.returncode == 0, output
+    except Exception as e:
+        return False, str(e)
+
+
+@router.get("/api/playout/status")
+async def playout_status():
+    """Check if playout is running."""
+    ok, output = await _supervisorctl("status")
+    running = "RUNNING" in output
+    return {"running": running, "detail": output}
+
+
+@router.post("/api/playout/start")
+async def playout_start():
+    """Start the playout pipeline."""
+    ok, output = await _supervisorctl("start")
+    return {"ok": ok or "ALREADY" in output.upper(), "detail": output}
+
+
+@router.post("/api/playout/stop")
+async def playout_stop():
+    """Stop the playout pipeline."""
+    ok, output = await _supervisorctl("stop")
+    return {"ok": ok or "NOT RUNNING" in output.upper(), "detail": output}
 
 
 @router.get("/api/status/now-playing")

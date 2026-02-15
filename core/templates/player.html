@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Radio</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .player-card { text-align: center; max-width: 420px; width: 100%; }
+        .player-card h1 { margin-bottom: 0.25rem; }
+        .player-card .subtitle { color: var(--pico-muted-color); margin-bottom: 1.5rem; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+        .status-dot.on { background: #22c55e; }
+        .status-dot.off { background: #ef4444; }
+        .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .controls { display: flex; gap: 0.75rem; justify-content: center; margin: 1.5rem 0; }
+        .controls button { min-width: 120px; }
+        #volume-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+        #volume-row input { flex: 1; }
+        #volume-label { min-width: 3ch; text-align: right; }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <article class="player-card">
+            <h1>Hermes Radio</h1>
+            <p class="subtitle">24/7 AI-powered internet radio</p>
+
+            <p id="status-line">
+                <span class="status-dot loading" id="status-dot"></span>
+                <span id="status-text">Checking...</span>
+            </p>
+
+            <div class="controls">
+                <button id="btn-start" class="outline" onclick="startRadio()">Start Radio</button>
+                <button id="btn-stop" class="outline secondary" onclick="stopRadio()">Stop Radio</button>
+            </div>
+
+            <audio id="audio" style="display:none"></audio>
+
+            <div class="controls">
+                <button id="btn-listen" onclick="togglePlay()">Listen</button>
+            </div>
+
+            <div id="volume-row">
+                <span>Vol</span>
+                <input type="range" id="volume" min="0" max="100" value="80" oninput="setVolume(this.value)">
+                <span id="volume-label">80</span>
+            </div>
+
+            <p style="margin-top:2rem">
+                <a href="/admin/" role="button" class="outline secondary" style="font-size:0.85rem">Admin Panel</a>
+            </p>
+        </article>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script>
+        const audio = document.getElementById('audio');
+        const dot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const btnListen = document.getElementById('btn-listen');
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        let hls = null;
+        let isPlaying = false;
+        let radioRunning = false;
+
+        function setVolume(v) {
+            audio.volume = v / 100;
+            document.getElementById('volume-label').textContent = v;
+        }
+        setVolume(80);
+
+        function updateUI() {
+            dot.className = 'status-dot ' + (radioRunning ? 'on' : 'off');
+            statusText.textContent = radioRunning ? 'On Air' : 'Off Air';
+            btnStart.disabled = radioRunning;
+            btnStop.disabled = !radioRunning;
+            btnListen.textContent = isPlaying ? 'Stop Listening' : 'Listen';
+            btnListen.disabled = !radioRunning;
+            if (!radioRunning && isPlaying) stopListening();
+        }
+
+        function attachHLS() {
+            if (hls) { hls.destroy(); hls = null; }
+            if (Hls.isSupported()) {
+                hls = new Hls({ liveDurationInfinity: true, enableWorker: true });
+                hls.loadSource('/hls/radio.m3u8');
+                hls.attachMedia(audio);
+                hls.on(Hls.Events.ERROR, (_, data) => {
+                    if (data.fatal) { isPlaying = false; updateUI(); }
+                });
+            } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+                audio.src = '/hls/radio.m3u8';
+            }
+        }
+
+        function togglePlay() {
+            if (isPlaying) { stopListening(); } else { startListening(); }
+        }
+
+        function startListening() {
+            attachHLS();
+            audio.play().then(() => { isPlaying = true; updateUI(); }).catch(() => {});
+        }
+
+        function stopListening() {
+            audio.pause();
+            if (hls) { hls.destroy(); hls = null; }
+            isPlaying = false;
+            updateUI();
+        }
+
+        async function startRadio() {
+            btnStart.ariaBusy = 'true';
+            dot.className = 'status-dot loading';
+            statusText.textContent = 'Starting...';
+            try {
+                await fetch('/api/playout/start', { method: 'POST' });
+                // Wait a few seconds for HLS segments to appear
+                await new Promise(r => setTimeout(r, 6000));
+            } catch(e) {}
+            btnStart.ariaBusy = 'false';
+            checkStatus();
+        }
+
+        async function stopRadio() {
+            btnStop.ariaBusy = 'true';
+            try {
+                await fetch('/api/playout/stop', { method: 'POST' });
+            } catch(e) {}
+            btnStop.ariaBusy = 'false';
+            radioRunning = false;
+            updateUI();
+        }
+
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/playout/status');
+                const data = await res.json();
+                radioRunning = data.running;
+            } catch(e) {
+                radioRunning = false;
+            }
+            updateUI();
+        }
+
+        // Poll status every 10s
+        checkStatus();
+        setInterval(checkStatus, 10000);
+    </script>
+</body>
+</html>
