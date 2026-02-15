@@ -71,6 +71,14 @@ radio = fallback(
   [breaks, safe_music]
 )
 
+# Crossfade: music fades out while break fades in (overlap)
+radio = cross(duration=3.0, fun(a, b) ->
+  add([
+    fade.out(duration=2.5, a.source),
+    fade.in(duration=1.5, b.source)
+  ])
+, radio)
+
 # Stings: not track-sensitive (interrupt immediately)
 radio = fallback(
   id="with_stings",
