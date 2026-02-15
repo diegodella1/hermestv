@@ -57,11 +57,18 @@ music.on_track(fun(m) -> begin
 end)
 
 # --- Composition ---
+# Music with safety: always falls back to blank if music not ready yet
+safe_music = fallback(
+  id="safe_music",
+  track_sensitive=false,
+  [music, blank(id="security")]
+)
+
 # Breaks: track-sensitive (wait for current track to end)
 radio = fallback(
   id="radio",
   track_sensitive=true,
-  [breaks, music]
+  [breaks, safe_music]
 )
 
 # Stings: not track-sensitive (interrupt immediately)
@@ -70,9 +77,6 @@ radio = fallback(
   track_sensitive=false,
   [stings, radio]
 )
-
-# Safety net
-radio = mksafe(fallback([radio, security]))
 
 # --- Server commands (callable via Unix socket) ---
 server.register(
