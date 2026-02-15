@@ -295,18 +295,47 @@ async def update_host(host_id: str, request: Request, _=Depends(require_api_key)
     db = await get_db()
     await db.execute(
         """UPDATE hosts SET label = ?, personality_prompt = ?,
-           is_breaking_host = ?, enabled = ?
+           is_breaking_host = ?, enabled = ?,
+           tts_provider = ?, tts_voice_id = ?
            WHERE id = ?""",
         (
             form.get("label", ""),
             form.get("personality_prompt", ""),
             1 if form.get("is_breaking_host") == "on" else 0,
             1 if form.get("enabled") == "on" else 0,
+            form.get("tts_provider", "piper"),
+            form.get("tts_voice_id", ""),
             host_id,
         ),
     )
     await db.commit()
     return RedirectResponse("/admin/hosts", status_code=303)
+
+
+# --- TTS Settings ---
+@router.get("/admin/tts", response_class=HTMLResponse)
+async def tts_settings_page(request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT key, value FROM settings WHERE key IN ('elevenlabs_api_key', 'openai_tts_model', 'tts_default_provider')"
+    )
+    settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
+    return templates.TemplateResponse("tts_settings.html", {"request": request, "settings": settings})
+
+
+@router.post("/admin/tts")
+async def update_tts_settings(request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+    for key in ["elevenlabs_api_key", "openai_tts_model", "tts_default_provider"]:
+        val = form.get(key)
+        if val is not None:
+            await db.execute(
+                "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+                (key, val),
+            )
+    await db.commit()
+    return RedirectResponse("/admin/tts", status_code=303)
 
 
 # --- Prompts ---

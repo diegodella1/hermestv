@@ -21,6 +21,21 @@
                 Breaking Host
             </label>
         </div>
+        <div class="grid">
+            <label>
+                TTS Provider
+                <select name="tts_provider">
+                    <option value="piper" {{ 'selected' if host.tts_provider == 'piper' or not host.tts_provider else '' }}>Piper (local)</option>
+                    <option value="elevenlabs" {{ 'selected' if host.tts_provider == 'elevenlabs' else '' }}>ElevenLabs</option>
+                    <option value="openai" {{ 'selected' if host.tts_provider == 'openai' else '' }}>OpenAI</option>
+                </select>
+            </label>
+            <label>
+                Voice ID
+                <input type="text" name="tts_voice_id" value="{{ host.tts_voice_id or '' }}"
+                       placeholder="piper: model name | elevenlabs: voice ID | openai: alloy/echo/fable/onyx/nova/shimmer">
+            </label>
+        </div>
         <label>
             Personality Prompt
             <textarea name="personality_prompt" rows="4">{{ host.personality_prompt }}</textarea>

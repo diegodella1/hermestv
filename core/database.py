@@ -34,6 +34,8 @@ async def init_db():
         "SELECT name FROM sqlite_master WHERE type='table' AND name='settings'"
     )
     if await cursor.fetchone():
+        # Run migrations for existing DBs
+        await _migrate(db)
         return
 
     schema_path = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
@@ -43,3 +45,30 @@ async def init_db():
     with open(schema_path) as f:
         await db.executescript(f.read())
     print("[db] Schema initialized")
+
+
+async def _migrate(db: aiosqlite.Connection):
+    """Idempotent migrations for existing databases."""
+    # Check if hosts table has tts_provider column
+    cursor = await db.execute("PRAGMA table_info(hosts)")
+    columns = {row[1] for row in await cursor.fetchall()}
+
+    if "tts_provider" not in columns:
+        await db.execute("ALTER TABLE hosts ADD COLUMN tts_provider TEXT DEFAULT 'piper'")
+        await db.execute("ALTER TABLE hosts ADD COLUMN tts_voice_id TEXT DEFAULT ''")
+        # Copy piper_model → tts_voice_id for existing hosts
+        await db.execute("UPDATE hosts SET tts_voice_id = piper_model WHERE tts_voice_id = ''")
+        print("[db] Migration: added tts_provider, tts_voice_id to hosts")
+
+    # Ensure TTS settings rows exist
+    for key, default in [
+        ("elevenlabs_api_key", ""),
+        ("openai_tts_model", "tts-1"),
+        ("tts_default_provider", "piper"),
+    ]:
+        await db.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+            (key, default),
+        )
+
+    await db.commit()

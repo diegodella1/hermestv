@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 from core.database import get_db
-from core.providers import weather, news, llm, tts_piper
+from core.providers import weather, news, llm, tts_router
 from core.services import (
     break_queue,
     content_filter,
@@ -129,9 +129,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 return
 
         # 6. TTS
-        audio_path = await tts_piper.synthesize(
-            script, host["piper_model"], break_id
-        )
+        audio_path = await tts_router.synthesize(script, host, break_id)
 
         if not audio_path:
             print("[builder] TTS failed, trying sting fallback")

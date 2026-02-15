@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}TTS Settings - Hermes Radio{% endblock %}
+{% block content %}
+<h2>TTS Settings</h2>
+
+<form method="post" action="/admin/tts">
+    <article>
+        <header>API Keys</header>
+        <label>
+            ElevenLabs API Key
+            <input type="password" name="elevenlabs_api_key"
+                   value="{{ settings.get('elevenlabs_api_key', '') }}"
+                   placeholder="Enter ElevenLabs API key">
+        </label>
+        <small>Get your key at <code>elevenlabs.io/app/settings/api-keys</code></small>
+    </article>
+
+    <article>
+        <header>OpenAI TTS</header>
+        <label>
+            Model
+            <select name="openai_tts_model">
+                <option value="tts-1" {{ 'selected' if settings.get('openai_tts_model') == 'tts-1' else '' }}>tts-1 (fast, cheaper)</option>
+                <option value="tts-1-hd" {{ 'selected' if settings.get('openai_tts_model') == 'tts-1-hd' else '' }}>tts-1-hd (higher quality)</option>
+            </select>
+        </label>
+        <small>Uses the same <code>OPENAI_API_KEY</code> environment variable already configured for the LLM.</small>
+    </article>
+
+    <article>
+        <header>Default Provider</header>
+        <label>
+            Default TTS provider for new hosts
+            <select name="tts_default_provider">
+                <option value="piper" {{ 'selected' if settings.get('tts_default_provider', 'piper') == 'piper' else '' }}>Piper (local, free)</option>
+                <option value="elevenlabs" {{ 'selected' if settings.get('tts_default_provider') == 'elevenlabs' else '' }}>ElevenLabs</option>
+                <option value="openai" {{ 'selected' if settings.get('tts_default_provider') == 'openai' else '' }}>OpenAI</option>
+            </select>
+        </label>
+    </article>
+
+    <button type="submit">Save TTS Settings</button>
+</form>
+
+<article>
+    <header>Voice Reference</header>
+    <details>
+        <summary>OpenAI voices</summary>
+        <p><code>alloy</code> · <code>echo</code> · <code>fable</code> · <code>onyx</code> · <code>nova</code> · <code>shimmer</code></p>
+    </details>
+    <details>
+        <summary>Piper models (local)</summary>
+        <p>Use the model name without extension, e.g. <code>en_US-lessac-high</code>, <code>en_US-ryan-high</code>.<br>
+        Models must be present in the <code>/opt/hermes/models/</code> directory.</p>
+    </details>
+    <details>
+        <summary>ElevenLabs voices</summary>
+        <p>Use the voice ID from your ElevenLabs dashboard (e.g. <code>21m00Tcm4TlvDq8ikWAM</code>).</p>
+    </details>
+</article>
+{% endblock %}

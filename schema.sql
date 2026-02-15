@@ -20,6 +20,9 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('breaking_score_threshold', '8'),
     ('breaking_policy', 'end_of_track'),
     ('news_dedupe_window_minutes', '60'),
+    ('elevenlabs_api_key', ''),
+    ('openai_tts_model', 'tts-1'),
+    ('tts_default_provider', 'piper'),
     ('master_prompt', 'You are a radio host for Roxom Radio, a modern indie-style internet radio station.
 
 RULES — you must always follow these:
@@ -47,6 +50,8 @@ CREATE TABLE IF NOT EXISTS hosts (
     personality_prompt TEXT DEFAULT '',
     is_breaking_host BOOLEAN DEFAULT FALSE,
     enabled BOOLEAN DEFAULT TRUE,
+    tts_provider TEXT DEFAULT 'piper',
+    tts_voice_id TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
