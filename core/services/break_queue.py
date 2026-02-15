@@ -65,11 +65,23 @@ async def mark_played(break_id: str):
 
 
 async def mark_failed(break_id: str, reason: str = ""):
-    """Mark break as failed."""
+    """Mark break as failed, preserving existing metadata."""
     db = await get_db()
+    # Merge error into existing meta instead of overwriting
+    cursor = await db.execute(
+        "SELECT meta_json FROM break_queue WHERE id = ?", (break_id,)
+    )
+    row = await cursor.fetchone()
+    meta = {}
+    if row and row["meta_json"]:
+        try:
+            meta = json.loads(row["meta_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    meta["error"] = reason
     await db.execute(
         "UPDATE break_queue SET status = 'FAILED', meta_json = ? WHERE id = ?",
-        (json.dumps({"error": reason}), break_id),
+        (json.dumps(meta), break_id),
     )
     await db.commit()
 

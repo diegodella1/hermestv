@@ -119,7 +119,12 @@
             dot.className = 'status-dot loading';
             statusText.textContent = 'Starting...';
             try {
-                await fetch('/api/playout/start', { method: 'POST' });
+                const res = await fetch('/api/playout/start', { method: 'POST' });
+                if (res.status === 401 || res.redirected) {
+                    statusText.textContent = 'Login required';
+                    btnStart.ariaBusy = 'false';
+                    return;
+                }
                 // Wait a few seconds for HLS segments to appear
                 await new Promise(r => setTimeout(r, 6000));
             } catch(e) {}
@@ -130,7 +135,12 @@
         async function stopRadio() {
             btnStop.ariaBusy = 'true';
             try {
-                await fetch('/api/playout/stop', { method: 'POST' });
+                const res = await fetch('/api/playout/stop', { method: 'POST' });
+                if (res.status === 401 || res.redirected) {
+                    statusText.textContent = 'Login required';
+                    btnStop.ariaBusy = 'false';
+                    return;
+                }
             } catch(e) {}
             btnStop.ariaBusy = 'false';
             radioRunning = false;

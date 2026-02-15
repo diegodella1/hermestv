@@ -1,7 +1,6 @@
 """Degradation manager — 5 levels of graceful fallback."""
 
 import os
-import random
 
 from core.config import STINGS_DIR
 from core.database import get_db

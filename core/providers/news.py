@@ -27,7 +27,9 @@ def _title_hash(title: str) -> str:
 
 
 async def fetch_all_feeds() -> list[dict]:
-    """Fetch headlines from all enabled + healthy feeds."""
+    """Fetch headlines from all enabled + healthy feeds (in parallel)."""
+    import asyncio
+
     db = await get_db()
     cursor = await db.execute(
         """SELECT ns.id, ns.label, ns.url, ns.category, ns.weight
@@ -38,11 +40,15 @@ async def fetch_all_feeds() -> list[dict]:
     )
     sources = [dict(r) for r in await cursor.fetchall()]
 
-    all_headlines = []
-    for source in sources:
-        headlines = await _fetch_feed(source)
-        all_headlines.extend(headlines)
+    results = await asyncio.gather(
+        *[_fetch_feed(source) for source in sources],
+        return_exceptions=True,
+    )
 
+    all_headlines = []
+    for result in results:
+        if isinstance(result, list):
+            all_headlines.extend(result)
     return all_headlines
 
 

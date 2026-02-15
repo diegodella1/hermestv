@@ -39,6 +39,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[hermes] Stale break cleanup error: {e}")
 
+    # Prune old data to keep SQLite lean
+    try:
+        from core.database import get_db
+        db = await get_db()
+        c1 = await db.execute("DELETE FROM events_log WHERE created_at < datetime('now', '-7 days')")
+        c2 = await db.execute("DELETE FROM cache_news WHERE fetched_at < datetime('now', '-24 hours')")
+        c3 = await db.execute("DELETE FROM break_queue WHERE status = 'FAILED' AND created_at < datetime('now', '-7 days')")
+        await db.commit()
+        pruned = c1.rowcount + c2.rowcount + c3.rowcount
+        if pruned:
+            print(f"[hermes] Pruned {pruned} old rows (events={c1.rowcount}, news_cache={c2.rowcount}, failed_breaks={c3.rowcount})")
+    except Exception as e:
+        print(f"[hermes] DB pruning error: {e}")
+
     # Wire up break builder (lazy import to avoid circular deps)
     try:
         from core.services.break_builder import prepare_break

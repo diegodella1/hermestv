@@ -16,6 +16,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 
 # Session tokens (in-memory, simple)
 _sessions: set[str] = set()
+_MAX_SESSIONS = 100
 
 
 async def require_api_key(request: Request):
@@ -53,6 +54,9 @@ async def login(request: Request):
     password = form.get("password", "")
     if password == HERMES_API_KEY:
         session_id = uuid.uuid4().hex
+        # Evict oldest sessions if at capacity
+        if len(_sessions) >= _MAX_SESSIONS:
+            _sessions.clear()
         _sessions.add(session_id)
         response = RedirectResponse("/admin/", status_code=303)
         response.set_cookie("hermes_session", session_id, httponly=True, max_age=86400)

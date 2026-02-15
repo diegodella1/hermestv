@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends
 
 from core.routers.admin import require_api_key
 from core.services import liquidsoap_client, break_builder
-from core.config import STINGS_DIR
 from core.services.degradation import get_sting_path
 
 router = APIRouter(prefix="/api/breaking", tags=["breaking"])

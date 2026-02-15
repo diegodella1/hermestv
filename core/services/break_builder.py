@@ -29,7 +29,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
     """
     t0 = time.time()
     now = datetime.now(timezone.utc)
-    break_id = f"brk_{now.strftime('%Y%m%d_%H%M%S')}"
+    break_id = f"brk_{now.strftime('%Y%m%d_%H%M%S')}_{now.strftime('%f')[:4]}"
     deg_level = 0
 
     db = await get_db()
@@ -172,8 +172,12 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
         # Always reset counter to prevent accumulation, even if push failed
         await liquidsoap_client.reset_counter()
 
+        # Mark as PLAYED once pushed (Liquidsoap has no play-complete callback)
+        if pushed:
+            await break_queue.mark_played(break_id)
+
         await _log_break(break_id, t0, deg_level)
-        print(f"[builder] Break {break_id} ready in {elapsed_ms}ms (deg={deg_level})")
+        print(f"[builder] Break {break_id} {'played' if pushed else 'ready (push failed)'} in {elapsed_ms}ms (deg={deg_level})")
 
     except Exception as e:
         print(f"[builder] Pipeline error: {e}")

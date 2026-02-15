@@ -5,9 +5,10 @@ import os
 import time
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from core.config import HLS_DIR, HERMES_API_KEY
+from core.routers.admin import require_api_key
 from core.database import get_db
 from core.services import liquidsoap_client
 
@@ -129,14 +130,14 @@ async def playout_status():
 
 
 @router.post("/api/playout/start")
-async def playout_start():
+async def playout_start(_=Depends(require_api_key)):
     """Start the playout pipeline."""
     ok, output = await _supervisorctl("start")
     return {"ok": ok or "ALREADY" in output.upper(), "detail": output}
 
 
 @router.post("/api/playout/stop")
-async def playout_stop():
+async def playout_stop(_=Depends(require_api_key)):
     """Stop the playout pipeline."""
     ok, output = await _supervisorctl("stop")
     return {"ok": ok or "NOT RUNNING" in output.upper(), "detail": output}

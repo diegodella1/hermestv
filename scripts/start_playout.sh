@@ -21,12 +21,15 @@ mkfifo "$FIFO"
 echo "[playout] Starting playout pipeline..."
 echo "[playout] HLS output: $HLS_DIR/radio.m3u8"
 
-# Generate playlist file from music directory
+# Use existing playlist (admin-managed order) or generate a default one
 PLAYLIST="/opt/hermes/music/playlist.m3u"
-echo "[playout] Generating playlist..."
-find /opt/hermes/music/ -maxdepth 1 -iname '*.mp3' -type f | sort > "$PLAYLIST"
+if [ -s "$PLAYLIST" ]; then
+    echo "[playout] Using existing playlist (admin-managed)"
+else
+    echo "[playout] No playlist found, generating default from disk..."
+    find /opt/hermes/music/ -maxdepth 1 -iname '*.mp3' -type f | sort > "$PLAYLIST"
+fi
 echo "[playout] Playlist: $(wc -l < "$PLAYLIST") tracks"
-cat "$PLAYLIST"
 
 # PIDs for cleanup
 FFMPEG_PID=""

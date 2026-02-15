@@ -14,19 +14,20 @@ API_BASE = "https://api.weatherapi.com/v1/current.json"
 
 
 async def get_weather_for_cities() -> list[dict]:
-    """Fetch weather for all enabled cities, using cache when fresh."""
+    """Fetch weather for all enabled cities (in parallel), using cache when fresh."""
+    import asyncio
+
     db = await get_db()
     cursor = await db.execute(
         "SELECT id, label, lat, lon, units FROM cities WHERE enabled = 1 ORDER BY priority"
     )
     cities = await cursor.fetchall()
 
-    results = []
-    for city in cities:
-        data = await _get_cached_or_fetch(dict(city))
-        if data:
-            results.append(data)
-    return results
+    fetched = await asyncio.gather(
+        *[_get_cached_or_fetch(dict(city)) for city in cities],
+        return_exceptions=True,
+    )
+    return [data for data in fetched if isinstance(data, dict)]
 
 
 async def _get_cached_or_fetch(city: dict) -> dict | None:

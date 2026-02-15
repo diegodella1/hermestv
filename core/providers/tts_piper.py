@@ -90,7 +90,19 @@ async def synthesize(
 
     except asyncio.TimeoutError:
         print(f"[tts] Timeout generating {output_id}")
+        _cleanup_temp(wav_path)
         return None
     except Exception as e:
         print(f"[tts] Error: {e}")
+        _cleanup_temp(wav_path)
         return None
+
+
+def _cleanup_temp(*paths):
+    """Remove temp files on failure."""
+    for p in paths:
+        try:
+            if os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass

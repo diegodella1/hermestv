@@ -6,6 +6,17 @@ import time
 
 from core.config import BREAKS_DIR, OPENAI_API_KEY
 
+# Singleton client (reuses HTTP connection pool)
+_tts_client = None
+
+
+def _get_tts_client():
+    global _tts_client
+    if _tts_client is None and OPENAI_API_KEY:
+        from openai import AsyncOpenAI
+        _tts_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    return _tts_client
+
 
 async def synthesize(
     text: str,
@@ -25,7 +36,8 @@ async def synthesize(
     Returns:
         Path to the normalized MP3 file, or None on failure.
     """
-    if not OPENAI_API_KEY:
+    client = _get_tts_client()
+    if not client:
         print("[tts:openai] No OPENAI_API_KEY configured")
         return None
 
@@ -43,9 +55,6 @@ async def synthesize(
         t0 = time.time()
 
         # Step 1: OpenAI TTS → raw MP3
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-
         response = await asyncio.wait_for(
             client.audio.speech.create(
                 model=model,
@@ -89,7 +98,19 @@ async def synthesize(
 
     except asyncio.TimeoutError:
         print(f"[tts:openai] Timeout generating {output_id}")
+        _cleanup_temp(raw_path)
         return None
     except Exception as e:
         print(f"[tts:openai] Error: {e}")
+        _cleanup_temp(raw_path)
         return None
+
+
+def _cleanup_temp(*paths):
+    """Remove temp files on failure."""
+    for p in paths:
+        try:
+            if os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass

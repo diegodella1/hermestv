@@ -36,16 +36,27 @@ breaks = request.queue(id="breaks")
 # Stings queue (breaking — interrupts immediately)
 stings = request.queue(id="stings")
 
-# Safety fallback — silence if nothing else plays
-security = blank(id="security")
-
 # --- Track counter + webhook to FastAPI ---
 track_count = ref(0)
+
+# Sanitize strings for safe JSON embedding (Liquidsoap 2.1.3 has no JSON serializer)
+# Replaces chars that would break JSON string values
+def json_safe(s)
+  s = string.replace(pattern="\\\\", (fun(_) -> "/"), s)
+  s = string.replace(pattern="\"", (fun(_) -> "'"), s)
+  s = string.replace(pattern="\\n", (fun(_) -> " "), s)
+  s = string.replace(pattern="\\r", (fun(_) -> ""), s)
+  s
+end
 
 music.on_track(fun(m) -> begin
   track_count := !track_count + 1;
 
-  payload = '{"event":"TRACK_ENDED","track":{"artist":"' ^ m["artist"] ^ '","title":"' ^ m["title"] ^ '","filename":"' ^ m["filename"] ^ '"},"tracks_since_last_break":' ^ string_of(!track_count) ^ '}';
+  artist = json_safe(m["artist"]);
+  title = json_safe(m["title"]);
+  filename = json_safe(m["filename"]);
+
+  payload = '{"event":"TRACK_ENDED","track":{"artist":"' ^ artist ^ '","title":"' ^ title ^ '","filename":"' ^ filename ^ '"},"tracks_since_last_break":' ^ string_of(!track_count) ^ '}';
 
   ignore(
     http.post(
@@ -110,6 +121,10 @@ server.register(
     "Skipped"
   end
 )
+
+# NOTE: music.reload is auto-registered by playlist(id="music", ...)
+# The admin UI sends "music.reload" via the Unix socket and it works
+# when playout is running. No manual server.register needed.
 
 # --- Output: WAV to named pipe (FIFO read by FFmpeg) ---
 output.file(
