@@ -118,12 +118,14 @@ CREATE TABLE IF NOT EXISTS news_sources (
 );
 
 INSERT OR IGNORE INTO news_sources (id, label, url, category) VALUES
-    ('reuters', 'Reuters World', 'https://feeds.reuters.com/reuters/worldNews', 'world'),
-    ('bbc', 'BBC News Top', 'http://feeds.bbci.co.uk/news/rss.xml', 'general'),
-    ('ap', 'AP News', 'https://rsshub.app/apnews/topics/apf-topnews', 'general'),
+    ('reuters', 'Reuters World', 'https://www.reutersagency.com/feed/?taxonomy=best-sectors&post_type=best', 'world'),
+    ('bbc', 'BBC News Top', 'https://feeds.bbci.co.uk/news/rss.xml', 'general'),
+    ('ap', 'AP News', 'https://feedx.net/rss/ap.xml', 'general'),
     ('aljazeera', 'Al Jazeera', 'https://www.aljazeera.com/xml/rss/all.xml', 'world'),
     ('techcrunch', 'TechCrunch', 'https://techcrunch.com/feed/', 'tech'),
-    ('ars', 'Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index', 'tech');
+    ('ars', 'Ars Technica', 'https://feeds.arstechnica.com/arstechnica/index', 'tech'),
+    ('guardian', 'The Guardian', 'https://www.theguardian.com/world/rss', 'world'),
+    ('npr', 'NPR News', 'https://feeds.npr.org/1001/rss.xml', 'general');
 
 -- Feed Health
 CREATE TABLE IF NOT EXISTS feed_health (
@@ -135,7 +137,7 @@ CREATE TABLE IF NOT EXISTS feed_health (
 );
 
 INSERT OR IGNORE INTO feed_health (source_id) VALUES
-    ('reuters'), ('bbc'), ('ap'), ('aljazeera'), ('techcrunch'), ('ars');
+    ('reuters'), ('bbc'), ('ap'), ('aljazeera'), ('techcrunch'), ('ars'), ('guardian'), ('npr');
 
 -- Cache: Weather
 CREATE TABLE IF NOT EXISTS cache_weather (

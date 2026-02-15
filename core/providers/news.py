@@ -51,7 +51,7 @@ async def _fetch_feed(source: dict) -> list[dict]:
     now = datetime.now(timezone.utc).isoformat()
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
             resp = await client.get(source["url"])
             resp.raise_for_status()
             content = resp.text

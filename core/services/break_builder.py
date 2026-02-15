@@ -161,8 +161,8 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
 
         # Push to Liquidsoap
         pushed = await liquidsoap_client.push_break(audio_path)
-        if pushed:
-            await liquidsoap_client.reset_counter()
+        # Always reset counter to prevent accumulation, even if push failed
+        await liquidsoap_client.reset_counter()
 
         await _log_break(break_id, t0, deg_level)
         print(f"[builder] Break {break_id} ready in {elapsed_ms}ms (deg={deg_level})")

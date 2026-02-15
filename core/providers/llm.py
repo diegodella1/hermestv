@@ -46,6 +46,8 @@ async def score_headlines(headlines: list[dict]) -> list[dict]:
         return []
 
     # Format headlines for scoring
+    # Limit to 12 headlines to avoid JSON truncation
+    headlines = headlines[:12]
     lines = []
     for i, h in enumerate(headlines):
         lines.append(f"{i}. [{h.get('source', 'unknown')}] {h['title']}")
@@ -59,7 +61,7 @@ async def score_headlines(headlines: list[dict]) -> list[dict]:
                 {"role": "system", "content": SCORER_SYSTEM},
                 {"role": "user", "content": user_msg},
             ],
-            max_tokens=500,
+            max_tokens=1000,
             temperature=0.1,
             response_format={"type": "json_object"},
         )

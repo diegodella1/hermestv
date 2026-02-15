@@ -58,21 +58,31 @@ async def send_command(cmd: str) -> str | None:
             return None
 
 
+async def send_command_with_retry(cmd: str) -> str | None:
+    """Send command with one automatic retry on failure (handles broken pipe)."""
+    result = await send_command(cmd)
+    if result is not None:
+        return result
+    # First attempt triggered reconnect, wait briefly and retry
+    await asyncio.sleep(1)
+    return await send_command(cmd)
+
+
 async def push_break(audio_path: str) -> bool:
     """Push a break audio file to the breaks queue."""
-    result = await send_command(f"breaks.push {audio_path}")
+    result = await send_command_with_retry(f"breaks.push {audio_path}")
     return result is not None
 
 
 async def push_sting(audio_path: str) -> bool:
     """Push a sting audio file to the stings queue (interrupts immediately)."""
-    result = await send_command(f"stings.push {audio_path}")
+    result = await send_command_with_retry(f"stings.push {audio_path}")
     return result is not None
 
 
 async def reset_counter() -> bool:
     """Reset the track counter to 0."""
-    result = await send_command("hermes.reset_counter")
+    result = await send_command_with_retry("hermes.reset_counter")
     return result is not None
 
 
@@ -95,7 +105,7 @@ async def skip_track() -> bool:
 
 async def reload_playlist() -> bool:
     """Tell Liquidsoap to reload the music playlist."""
-    result = await send_command("music.reload")
+    result = await send_command_with_retry("music.reload")
     return result is not None
 
 

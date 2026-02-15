@@ -9,8 +9,8 @@ BLOCKED_WORDS = [
 ]
 
 MIN_WORDS = 15
-MAX_WORDS = 80
-MAX_CHARS = 500
+MAX_WORDS = 100
+MAX_CHARS = 600
 
 
 def validate(script: str, is_breaking: bool = False) -> tuple[bool, str]:
