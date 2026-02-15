@@ -26,6 +26,19 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("[hermes] Database initialized")
 
+    # Clean stale PREPARING breaks left by previous crash/restart
+    try:
+        from core.database import get_db
+        db = await get_db()
+        res = await db.execute(
+            "UPDATE break_queue SET status='FAILED', meta_json=json_object('error','stale_preparing_on_startup') WHERE status='PREPARING'"
+        )
+        await db.commit()
+        if res.rowcount:
+            print(f"[hermes] Cleaned {res.rowcount} stale PREPARING break(s)")
+    except Exception as e:
+        print(f"[hermes] Stale break cleanup error: {e}")
+
     # Wire up break builder (lazy import to avoid circular deps)
     try:
         from core.services.break_builder import prepare_break
