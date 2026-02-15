@@ -13,18 +13,25 @@
 </article>
 
 {% if message %}
-<article style="border-left: 3px solid var(--pico-primary);">
+<article id="msg-box" style="border-left: 3px solid var(--pico-primary);">
     {{ message }}
 </article>
 {% endif %}
 
 <article>
     <header>
-        <div style="display:flex;justify-content:space-between;align-items:center">
-            <span>{{ files|length }} track{{ 's' if files|length != 1 else '' }} in library ({{ total_size_mb }} MB total)</span>
-            <form action="/admin/music/reload" method="post" style="margin:0">
-                <button type="submit" class="outline" style="padding:4px 14px;margin:0">Reload Playlist</button>
-            </form>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <span id="track-count">
+                {{ files|length }} track{{ 's' if files|length != 1 else '' }} in library ({{ total_size_mb }} MB)
+            </span>
+            <div style="display:flex;gap:8px">
+                <button type="button" class="outline" style="padding:4px 14px;margin:0" onclick="saveOrder()">
+                    Save &amp; Reload
+                </button>
+                <form action="/admin/music/reload" method="post" style="margin:0">
+                    <button type="submit" class="outline secondary" style="padding:4px 14px;margin:0">Force Reload</button>
+                </form>
+            </div>
         </div>
     </header>
     {% if files %}
@@ -32,21 +39,39 @@
         <table>
             <thead>
                 <tr>
-                    <th>Filename</th>
-                    <th>Size</th>
-                    <th></th>
+                    <th style="width:30px">#</th>
+                    <th>Track</th>
+                    <th style="width:70px">Size</th>
+                    <th style="width:70px">Active</th>
+                    <th style="width:120px">Order</th>
+                    <th style="width:70px"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="playlist-body">
                 {% for f in files %}
-                <tr>
-                    <td>{{ f.name }}</td>
+                <tr data-filename="{{ f.name }}" draggable="true" class="{{ '' if f.enabled else 'disabled-track' }}">
+                    <td class="row-num">{{ loop.index }}</td>
+                    <td class="track-name" style="cursor:grab">{{ f.name }}</td>
                     <td>{{ f.size_mb }} MB</td>
+                    <td>
+                        <form action="/admin/music/toggle" method="post" style="margin:0">
+                            <input type="hidden" name="filename" value="{{ f.name }}">
+                            <input type="checkbox" role="switch" style="margin:0"
+                                   {{ 'checked' if f.enabled else '' }}
+                                   onchange="this.form.submit()">
+                        </form>
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:4px">
+                            <button type="button" class="outline secondary" style="padding:2px 8px;margin:0" onclick="moveRow(this,-1)" title="Move up">&#9650;</button>
+                            <button type="button" class="outline secondary" style="padding:2px 8px;margin:0" onclick="moveRow(this,1)" title="Move down">&#9660;</button>
+                        </div>
+                    </td>
                     <td>
                         <form action="/admin/music/delete" method="post" style="margin:0"
                               onsubmit="return confirm('Delete {{ f.name }}?')">
                             <input type="hidden" name="filename" value="{{ f.name }}">
-                            <button type="submit" class="outline secondary" style="padding:4px 10px;margin:0">Delete</button>
+                            <button type="submit" class="outline secondary" style="padding:2px 8px;margin:0;color:var(--pico-del-color)">&#10005;</button>
                         </form>
                     </td>
                 </tr>
@@ -54,8 +79,126 @@
             </tbody>
         </table>
     </figure>
+    <small style="opacity:.6">Drag rows or use arrows to reorder. Toggle switch to include/exclude from playlist. Click "Save &amp; Reload" to apply.</small>
     {% else %}
     <p>No MP3 files yet. Upload some to get started.</p>
     {% endif %}
 </article>
+
+<style>
+    .disabled-track { opacity: 0.45; }
+    .disabled-track .track-name { text-decoration: line-through; }
+    #playlist-body tr { transition: opacity 0.15s; }
+    #playlist-body tr.drag-over { border-top: 2px solid var(--pico-primary); }
+    #playlist-body tr[draggable] .track-name { cursor: grab; }
+    #playlist-body tr.dragging { opacity: 0.3; }
+</style>
+
+<script>
+// --- Drag and drop ---
+const tbody = document.getElementById('playlist-body');
+let dragRow = null;
+
+tbody.addEventListener('dragstart', e => {
+    dragRow = e.target.closest('tr');
+    if (!dragRow) return;
+    dragRow.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+});
+
+tbody.addEventListener('dragend', e => {
+    if (dragRow) dragRow.classList.remove('dragging');
+    tbody.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+    dragRow = null;
+    renumber();
+});
+
+tbody.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const target = e.target.closest('tr');
+    if (!target || target === dragRow) return;
+    tbody.querySelectorAll('.drag-over').forEach(r => r.classList.remove('drag-over'));
+    target.classList.add('drag-over');
+});
+
+tbody.addEventListener('dragleave', e => {
+    const target = e.target.closest('tr');
+    if (target) target.classList.remove('drag-over');
+});
+
+tbody.addEventListener('drop', e => {
+    e.preventDefault();
+    const target = e.target.closest('tr');
+    if (!target || !dragRow || target === dragRow) return;
+    target.classList.remove('drag-over');
+    // Insert before or after depending on position
+    const rows = [...tbody.children];
+    const dragIdx = rows.indexOf(dragRow);
+    const targetIdx = rows.indexOf(target);
+    if (dragIdx < targetIdx) {
+        tbody.insertBefore(dragRow, target.nextSibling);
+    } else {
+        tbody.insertBefore(dragRow, target);
+    }
+    renumber();
+});
+
+// --- Arrow buttons ---
+function moveRow(btn, dir) {
+    const row = btn.closest('tr');
+    const rows = [...tbody.children];
+    const idx = rows.indexOf(row);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= rows.length) return;
+    if (dir === -1) {
+        tbody.insertBefore(row, rows[newIdx]);
+    } else {
+        tbody.insertBefore(row, rows[newIdx].nextSibling);
+    }
+    renumber();
+}
+
+function renumber() {
+    tbody.querySelectorAll('.row-num').forEach((td, i) => td.textContent = i + 1);
+}
+
+// --- Save order ---
+async function saveOrder() {
+    const order = [...tbody.querySelectorAll('tr')].map(r => r.dataset.filename);
+    const btn = document.querySelector('[onclick="saveOrder()"]');
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = 'Saving...';
+
+    try {
+        const resp = await fetch('/admin/music/order', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({order})
+        });
+        const data = await resp.json();
+        showMsg(data.liquidsoap
+            ? `Playlist saved (${data.tracks} active tracks)`
+            : `Playlist saved (${data.tracks} tracks) — Liquidsoap not connected`);
+    } catch (err) {
+        showMsg('Error saving: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.textContent = 'Save & Reload';
+    }
+}
+
+function showMsg(text) {
+    let box = document.getElementById('msg-box');
+    if (!box) {
+        box = document.createElement('article');
+        box.id = 'msg-box';
+        box.style.borderLeft = '3px solid var(--pico-primary)';
+        document.querySelector('h2').after(document.querySelector('article'), box);
+    }
+    box.textContent = text;
+}
+</script>
 {% endblock %}

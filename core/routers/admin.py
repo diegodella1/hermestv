@@ -335,17 +335,61 @@ async def update_prompts(request: Request, _=Depends(require_api_key)):
 
 # --- Music Library ---
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB per file
+_STATE_FILE = MUSIC_DIR / "playlist_state.json"
+
+
+def _load_playlist_state() -> dict:
+    """Load playlist state (order + disabled set) from JSON."""
+    if _STATE_FILE.exists():
+        try:
+            return json.loads(_STATE_FILE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {"order": [], "disabled": []}
+
+
+def _save_playlist_state(state: dict):
+    """Persist playlist state to JSON."""
+    MUSIC_DIR.mkdir(parents=True, exist_ok=True)
+    _STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
 def _list_music_files():
-    """List MP3 files in music dir with sizes."""
+    """List MP3 files respecting playlist state order + enabled flag."""
+    if not MUSIC_DIR.exists():
+        return [], 0.0
+
+    # All mp3s on disk
+    on_disk = {f.name for f in MUSIC_DIR.glob("*.mp3")}
+    state = _load_playlist_state()
+    disabled = set(state.get("disabled", []))
+
+    # Build ordered list: state order first, then any new files appended
+    ordered = [n for n in state.get("order", []) if n in on_disk]
+    new_files = sorted(on_disk - set(ordered))
+    ordered.extend(new_files)
+
     files = []
-    if MUSIC_DIR.exists():
-        for f in sorted(MUSIC_DIR.glob("*.mp3")):
-            size = f.stat().st_size
-            files.append({"name": f.name, "size_mb": round(size / 1024 / 1024, 1)})
+    for name in ordered:
+        size = (MUSIC_DIR / name).stat().st_size
+        files.append({
+            "name": name,
+            "size_mb": round(size / 1024 / 1024, 1),
+            "enabled": name not in disabled,
+        })
+
     total = sum(f["size_mb"] for f in files)
     return files, round(total, 1)
+
+
+def _regenerate_m3u(files: list[dict] | None = None):
+    """Write playlist.m3u with only enabled tracks in order."""
+    if files is None:
+        files, _ = _list_music_files()
+    m3u_path = MUSIC_DIR / "playlist.m3u"
+    enabled = [str(MUSIC_DIR / f["name"]) for f in files if f["enabled"]]
+    m3u_path.write_text("\n".join(enabled) + "\n" if enabled else "")
+    return len(enabled)
 
 
 @router.get("/admin/music", response_class=HTMLResponse)
@@ -387,6 +431,7 @@ async def music_upload(
         dest.write_bytes(data)
         uploaded += 1
 
+    # New files get appended to order automatically by _list_music_files
     msg = f"Uploaded {uploaded} file(s)."
     if skipped:
         msg += f" Skipped: {', '.join(skipped)}"
@@ -403,25 +448,76 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
 
     if target.exists() and target.suffix.lower() == ".mp3":
         target.unlink()
+        # Remove from state
+        state = _load_playlist_state()
+        state["order"] = [n for n in state.get("order", []) if n != safe_name]
+        state["disabled"] = [n for n in state.get("disabled", []) if n != safe_name]
+        _save_playlist_state(state)
         msg = f"Deleted {safe_name}"
     else:
         msg = f"File not found: {safe_name}"
     return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
 
 
+@router.post("/admin/music/toggle")
+async def music_toggle(request: Request, _=Depends(require_api_key)):
+    """Toggle a track's enabled/disabled state."""
+    form = await request.form()
+    filename = form.get("filename", "")
+    safe_name = Path(filename).name
+
+    state = _load_playlist_state()
+    disabled = set(state.get("disabled", []))
+
+    if safe_name in disabled:
+        disabled.discard(safe_name)
+    else:
+        disabled.add(safe_name)
+
+    state["disabled"] = list(disabled)
+    _save_playlist_state(state)
+    return RedirectResponse("/admin/music", status_code=303)
+
+
+@router.post("/admin/music/order")
+async def music_reorder(request: Request, _=Depends(require_api_key)):
+    """Save new playlist order from JSON body."""
+    body = await request.json()
+    new_order = body.get("order", [])
+
+    # Validate: only allow filenames that exist on disk
+    on_disk = {f.name for f in MUSIC_DIR.glob("*.mp3")} if MUSIC_DIR.exists() else set()
+    validated = [n for n in new_order if n in on_disk]
+
+    state = _load_playlist_state()
+    state["order"] = validated
+    _save_playlist_state(state)
+
+    # Regenerate m3u and reload
+    files, _ = _list_music_files()
+    count = _regenerate_m3u(files)
+
+    from core.services import liquidsoap_client
+    ok = await liquidsoap_client.reload_playlist()
+
+    return {"status": "ok", "tracks": count, "liquidsoap": ok}
+
+
 @router.post("/admin/music/reload")
 async def music_reload(request: Request, _=Depends(require_api_key)):
-    import asyncio as _asyncio
+    # Regenerate m3u respecting state
+    files, _ = _list_music_files()
+    count = _regenerate_m3u(files)
 
-    # Regenerate the .m3u playlist file
-    m3u_path = MUSIC_DIR / "playlist.m3u"
-    mp3s = sorted(MUSIC_DIR.glob("*.mp3"))
-    m3u_path.write_text("\n".join(str(f) for f in mp3s) + "\n" if mp3s else "")
+    # Save current order to state (sync)
+    state = _load_playlist_state()
+    state["order"] = [f["name"] for f in files]
+    _save_playlist_state(state)
 
     # Tell Liquidsoap to reload
     from core.services import liquidsoap_client
     ok = await liquidsoap_client.reload_playlist()
-    msg = f"Playlist updated ({len(mp3s)} tracks)" if ok else f"Playlist file updated ({len(mp3s)} tracks) but Liquidsoap not connected"
+    msg = f"Playlist updated ({count} tracks)" if ok else f"Playlist file updated ({count} tracks) but Liquidsoap not connected"
     return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
 
 
