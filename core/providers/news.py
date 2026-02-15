@@ -162,10 +162,50 @@ async def mark_scored(news_id: str, score: int, category: str | None = None):
 
 
 async def get_top_headlines(
-    limit: int = 3, dedupe_window_minutes: int = 60
+    limit: int = 3,
+    dedupe_window_minutes: int = 60,
+    exclude_ids: list[str] | None = None,
 ) -> list[dict]:
-    """Get top scored headlines within dedupe window."""
+    """Get top scored headlines within dedupe window, excluding already-used IDs."""
     db = await get_db()
+    time_param = f"-{dedupe_window_minutes} minutes"
+
+    if exclude_ids:
+        placeholders = ",".join("?" for _ in exclude_ids)
+        cursor = await db.execute(
+            f"""SELECT id, title, description, source_id, category, score, published_at
+               FROM cache_news
+               WHERE scored = 1
+                 AND score >= 4
+                 AND fetched_at > datetime('now', ?)
+                 AND id NOT IN ({placeholders})
+               ORDER BY score DESC, fetched_at DESC
+               LIMIT ?""",
+            (time_param, *exclude_ids, limit),
+        )
+        rows = [dict(r) for r in await cursor.fetchall()]
+
+        # Fallback: if exclusion left < limit, backfill without exclusion
+        if len(rows) < limit:
+            cursor = await db.execute(
+                """SELECT id, title, description, source_id, category, score, published_at
+                   FROM cache_news
+                   WHERE scored = 1
+                     AND score >= 4
+                     AND fetched_at > datetime('now', ?)
+                   ORDER BY score DESC, fetched_at DESC
+                   LIMIT ?""",
+                (time_param, limit),
+            )
+            all_rows = [dict(r) for r in await cursor.fetchall()]
+            # Add any missing ones (preserve order: fresh first, then backfill)
+            seen = {r["id"] for r in rows}
+            for r in all_rows:
+                if r["id"] not in seen and len(rows) < limit:
+                    rows.append(r)
+                    seen.add(r["id"])
+        return rows
+
     cursor = await db.execute(
         """SELECT id, title, description, source_id, category, score, published_at
            FROM cache_news
@@ -174,6 +214,6 @@ async def get_top_headlines(
              AND fetched_at > datetime('now', ?)
            ORDER BY score DESC, fetched_at DESC
            LIMIT ?""",
-        (f"-{dedupe_window_minutes} minutes", limit),
+        (time_param, limit),
     )
     return [dict(r) for r in await cursor.fetchall()]

@@ -87,6 +87,26 @@ async def get_ready_break() -> dict | None:
     return dict(row) if row else None
 
 
+async def get_recent_headline_ids(lookback: int = 2) -> list[str]:
+    """Get headline IDs used in the last N played/ready breaks."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT meta_json FROM break_queue
+           WHERE status IN ('PLAYED', 'READY')
+             AND meta_json IS NOT NULL
+           ORDER BY created_at DESC LIMIT ?""",
+        (lookback,),
+    )
+    ids = []
+    for row in await cursor.fetchall():
+        try:
+            meta = json.loads(row["meta_json"])
+            ids.extend(meta.get("headline_ids", []))
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return ids
+
+
 async def get_preparing_break() -> dict | None:
     """Check if there's a break currently being prepared."""
     db = await get_db()

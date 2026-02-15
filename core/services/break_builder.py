@@ -83,8 +83,13 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                             s.get("category"),
                         )
 
+            recently_used_ids = await break_queue.get_recent_headline_ids(lookback=2)
             dedupe_window = int(settings.get("news_dedupe_window_minutes", "60"))
-            headlines = await news.get_top_headlines(limit=3, dedupe_window_minutes=dedupe_window)
+            headlines = await news.get_top_headlines(
+                limit=3,
+                dedupe_window_minutes=dedupe_window,
+                exclude_ids=recently_used_ids or None,
+            )
         except Exception as e:
             print(f"[builder] News pipeline error: {e}")
 
@@ -154,7 +159,12 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             audio_path,
             degradation_level=deg_level,
             duration_ms=elapsed_ms,
-            meta={"host": host["id"], "headlines": len(headlines), "weather_cities": len(weather_data)},
+            meta={
+                "host": host["id"],
+                "headlines": len(headlines),
+                "headline_ids": [h["id"] for h in headlines],
+                "weather_cities": len(weather_data),
+            },
         )
 
         # Push to Liquidsoap
