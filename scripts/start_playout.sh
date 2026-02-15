@@ -28,10 +28,13 @@ find /opt/hermes/music/ -maxdepth 1 -iname '*.mp3' -type f | sort > "$PLAYLIST"
 echo "[playout] Playlist: $(wc -l < "$PLAYLIST") tracks"
 cat "$PLAYLIST"
 
+# PIDs for cleanup
+FFMPEG_PID=""
+
 # Cleanup on exit
 cleanup() {
     echo "[playout] Shutting down..."
-    kill $FFMPEG_PID $LIQ_PID 2>/dev/null || true
+    [ -n "$FFMPEG_PID" ] && kill "$FFMPEG_PID" 2>/dev/null || true
     rm -f "$FIFO"
     exit 0
 }
@@ -52,8 +55,5 @@ ffmpeg -hide_banner -loglevel warning \
 FFMPEG_PID=$!
 
 # Start Liquidsoap writing to FIFO (foreground — supervisord monitors this)
+# When liquidsoap exits, the script exits and cleanup kills FFmpeg
 liquidsoap /opt/hermes/playout/radio.liq 2>>"$LOGS/liquidsoap_stderr.log"
-LIQ_PID=$!
-
-# Wait for Liquidsoap (if it exits, everything shuts down)
-wait $LIQ_PID
