@@ -179,7 +179,7 @@ def _format_context(weather_data: list[dict], headlines: list[dict], recent_trac
     if bitcoin_data:
         stale = bitcoin_data.get("stale", False)
         suffix = " (last check)" if stale else ""
-        parts.append("BITCOIN MARKET DATA:")
+        parts.append("BITCOIN MARKET DATA (report numbers only — NEVER say buy/sell/invest):")
         p = bitcoin_data.get("price", {})
         if p.get("live_price") is not None:
             change = p.get("change_24h")

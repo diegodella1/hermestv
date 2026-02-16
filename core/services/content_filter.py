@@ -1,11 +1,17 @@
 """Content filter — validates LLM-generated radio scripts."""
 
+import re
 
-BLOCKED_WORDS = [
-    "buy", "sell", "invest", "price target", "prediction",
-    "http", "www.", ".com", ".org", ".net",
-    "click", "visit", "subscribe", "go to", "check out",
+# Two lists: exact word-boundary matches vs substring matches
+BLOCKED_PHRASES = [
+    "buy", "sell", "invest", "investing", "price target", "prediction",
+    "click", "subscribe", "go to", "check out",
     "breaking news",  # avoid if not actually breaking
+]
+
+# These need substring matching (URLs/domains)
+BLOCKED_SUBSTRINGS = [
+    "http", "www.", ".com", ".org", ".net",
 ]
 
 DEFAULT_MIN_WORDS = 15
@@ -51,13 +57,18 @@ def validate(
 
     lower = script.lower()
 
-    blocked = BLOCKED_WORDS.copy()
+    # Word-boundary matching for phrases (won't match "investigation" for "invest")
+    phrases = BLOCKED_PHRASES.copy()
     if is_breaking:
-        # Allow "breaking news" in actual breaking segments
-        blocked = [w for w in blocked if w != "breaking news"]
+        phrases = [w for w in phrases if w != "breaking news"]
 
-    for word in blocked:
-        if word in lower:
-            return False, f"blocked word: '{word}'"
+    for phrase in phrases:
+        if re.search(r'\b' + re.escape(phrase) + r'\b', lower):
+            return False, f"blocked word: '{phrase}'"
+
+    # Substring matching for URLs/domains
+    for sub in BLOCKED_SUBSTRINGS:
+        if sub in lower:
+            return False, f"blocked pattern: '{sub}'"
 
     return True, "ok"
