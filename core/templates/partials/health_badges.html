@@ -1,7 +1,14 @@
-<div id="health-badges">
+<article id="feed-health-card"
+         hx-get="/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
+    <header>Feed Health</header>
     {% for status, count in feed_health.items() %}
-    <span class="badge badge-{{ 'ok' if status == 'healthy' else 'warn' if status == 'unhealthy' else 'err' }}">
-        {{ status }}: {{ count }}
-    </span>
+    <p>
+        <span class="badge badge-{{ 'ok' if status == 'healthy' else 'warn' if status == 'unhealthy' else 'err' }}">
+            {{ status }}
+        </span>
+        {{ count }} feed{{ 's' if count != 1 else '' }}
+    </p>
+    {% else %}
+    <p class="text-muted">No feeds configured</p>
     {% endfor %}
-</div>
+</article>

@@ -3,48 +3,61 @@
 {% block content %}
 <h2>Dashboard</h2>
 
+<div class="stat-row" id="dashboard-stats"
+     hx-get="/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
+    <article class="stat-card">
+        <div class="stat-value">{{ track_count if track_count is not none else '?' }}</div>
+        <div class="stat-label">Track Count</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ breaks_played }}</div>
+        <div class="stat-label">Breaks Played</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ breaks_failed }}</div>
+        <div class="stat-label">Breaks Failed</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ 'ON' if quiet_mode else 'OFF' }}</div>
+        <div class="stat-label">Quiet Mode</div>
+    </article>
+</div>
+
 <div class="grid">
-    <article>
-        <header>Now Playing</header>
-        <p>Tracks since last break: <strong>{{ track_count if track_count is not none else '?' }}</strong></p>
-        <p>Quiet mode: <strong>{{ 'ON' if quiet_mode else 'OFF' }}</strong></p>
+    <article id="last-break-card"
+             hx-get="/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
+        <header>Last Break</header>
+        {% if last_break %}
+        <p><strong>Host:</strong> {{ host_names.get(last_break.host_id, last_break.host_id) }}</p>
+        <p><strong>Type:</strong> {{ last_break.type }}</p>
+        <p><strong>Degradation:</strong> Level {{ last_break.degradation_level }}</p>
+        <p><strong>Played:</strong> {{ last_break.played_at }}</p>
+        {% if last_break.script_text %}
+        <details>
+            <summary>Script</summary>
+            <p>{{ last_break.script_text }}</p>
+        </details>
+        {% endif %}
+        {% else %}
+        <p class="text-muted">No breaks played yet</p>
+        {% endif %}
     </article>
 
-    <article>
-        <header>Today's Stats</header>
-        <p>Breaks played: <strong>{{ breaks_played }}</strong></p>
-        <p>Breaks failed: <strong>{{ breaks_failed }}</strong></p>
-    </article>
-
-    <article>
+    <article id="feed-health-card"
+             hx-get="/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
         <header>Feed Health</header>
         {% for status, count in feed_health.items() %}
         <p>
             <span class="badge badge-{{ 'ok' if status == 'healthy' else 'warn' if status == 'unhealthy' else 'err' }}">
                 {{ status }}
             </span>
-            {{ count }} feed(s)
+            {{ count }} feed{{ 's' if count != 1 else '' }}
         </p>
+        {% else %}
+        <p class="text-muted">No feeds configured</p>
         {% endfor %}
     </article>
 </div>
-
-{% if last_break %}
-<article>
-    <header>Last Break</header>
-    <p><strong>ID:</strong> {{ last_break.id }}</p>
-    <p><strong>Type:</strong> {{ last_break.type }}</p>
-    <p><strong>Host:</strong> {{ last_break.host_id }}</p>
-    <p><strong>Played at:</strong> {{ last_break.played_at }}</p>
-    <p><strong>Degradation:</strong> Level {{ last_break.degradation_level }}</p>
-    {% if last_break.script_text %}
-    <details>
-        <summary>Script</summary>
-        <p>{{ last_break.script_text }}</p>
-    </details>
-    {% endif %}
-</article>
-{% endif %}
 
 <article>
     <header>Stream</header>

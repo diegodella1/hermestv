@@ -110,14 +110,20 @@ async def dashboard(request: Request, _=Depends(require_api_key)):
     cursor = await db.execute("SELECT key, value FROM settings WHERE key = 'quiet_mode'")
     qm = await cursor.fetchone()
 
+    # Host names for display
+    cursor = await db.execute("SELECT id, label FROM hosts")
+    host_names = {r["id"]: r["label"] for r in await cursor.fetchall()}
+
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
+        "nav_active": "dashboard",
         "track_count": track_count,
         "breaks_played": (stats["played"] or 0) if stats else 0,
         "breaks_failed": (stats["failed"] or 0) if stats else 0,
         "feed_health": feed_health,
         "last_break": dict(last_break) if last_break else None,
         "quiet_mode": qm["value"] == "true" if qm else False,
+        "host_names": host_names,
     })
 
 
@@ -127,7 +133,7 @@ async def rules_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT key, value FROM settings")
     settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
-    return templates.TemplateResponse("rules.html", {"request": request, "settings": settings})
+    return templates.TemplateResponse("rules.html", {"request": request, "nav_active": "rules", "settings": settings})
 
 
 @router.post("/admin/rules")
@@ -148,7 +154,7 @@ async def update_rules(request: Request, _=Depends(require_api_key)):
                 (val, key),
             )
     await db.commit()
-    return RedirectResponse("/admin/rules", status_code=303)
+    return RedirectResponse("/admin/rules?flash=Rules+saved&flash_type=success", status_code=303)
 
 
 # --- API Settings ---
@@ -177,7 +183,7 @@ async def cities_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT * FROM cities ORDER BY priority")
     cities = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("cities.html", {"request": request, "cities": cities})
+    return templates.TemplateResponse("cities.html", {"request": request, "nav_active": "cities", "cities": cities})
 
 
 @router.post("/admin/cities")
@@ -200,7 +206,41 @@ async def create_city(request: Request, _=Depends(require_api_key)):
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/cities", status_code=303)
+    return RedirectResponse("/admin/cities?flash=City+added&flash_type=success", status_code=303)
+
+
+@router.get("/admin/cities/{city_id}", response_class=HTMLResponse)
+async def edit_city_page(city_id: str, request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM cities WHERE id = ?", (city_id,))
+    city = await cursor.fetchone()
+    if not city:
+        return RedirectResponse("/admin/cities?flash=City+not+found&flash_type=error", status_code=303)
+    return templates.TemplateResponse("city_edit.html", {
+        "request": request, "nav_active": "cities", "city": dict(city),
+    })
+
+
+@router.post("/admin/cities/{city_id}")
+async def update_city(city_id: str, request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+    await db.execute(
+        """UPDATE cities SET label = ?, lat = ?, lon = ?, tz = ?,
+           enabled = ?, priority = ?, units = ? WHERE id = ?""",
+        (
+            form.get("label", ""),
+            float(form.get("lat", 0)),
+            float(form.get("lon", 0)),
+            form.get("tz", "UTC"),
+            1 if form.get("enabled") == "on" else 0,
+            int(form.get("priority", 0)),
+            form.get("units", "metric"),
+            city_id,
+        ),
+    )
+    await db.commit()
+    return RedirectResponse("/admin/cities?flash=City+updated&flash_type=success", status_code=303)
 
 
 @router.post("/admin/cities/{city_id}/delete")
@@ -208,7 +248,7 @@ async def delete_city(city_id: str, _=Depends(require_api_key)):
     db = await get_db()
     await db.execute("DELETE FROM cities WHERE id = ?", (city_id,))
     await db.commit()
-    return RedirectResponse("/admin/cities", status_code=303)
+    return RedirectResponse("/admin/cities?flash=City+deleted&flash_type=success", status_code=303)
 
 
 # --- API Cities ---
@@ -255,7 +295,7 @@ async def sources_page(request: Request, _=Depends(require_api_key)):
            ORDER BY ns.label"""
     )
     sources = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("sources.html", {"request": request, "sources": sources})
+    return templates.TemplateResponse("sources.html", {"request": request, "nav_active": "sources", "sources": sources})
 
 
 @router.post("/admin/sources")
@@ -275,7 +315,42 @@ async def create_source(request: Request, _=Depends(require_api_key)):
     )
     await db.execute("INSERT OR IGNORE INTO feed_health (source_id) VALUES (?)", (src_id,))
     await db.commit()
-    return RedirectResponse("/admin/sources", status_code=303)
+    return RedirectResponse("/admin/sources?flash=Source+added&flash_type=success", status_code=303)
+
+
+@router.get("/admin/sources/{src_id}", response_class=HTMLResponse)
+async def edit_source_page(src_id: str, request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM news_sources WHERE id = ?", (src_id,))
+    source = await cursor.fetchone()
+    if not source:
+        return RedirectResponse("/admin/sources?flash=Source+not+found&flash_type=error", status_code=303)
+    return templates.TemplateResponse("source_edit.html", {
+        "request": request, "nav_active": "sources", "source": dict(source),
+    })
+
+
+@router.post("/admin/sources/{src_id}")
+async def update_source(src_id: str, request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+    await db.execute(
+        """UPDATE news_sources SET type = ?, label = ?, url = ?,
+           enabled = ?, weight = ?, category = ?, poll_interval_seconds = ?
+           WHERE id = ?""",
+        (
+            form.get("type", "rss"),
+            form.get("label", ""),
+            form.get("url", ""),
+            1 if form.get("enabled") == "on" else 0,
+            float(form.get("weight", 1.0)),
+            form.get("category", "general"),
+            int(form.get("poll_interval_seconds", 300)),
+            src_id,
+        ),
+    )
+    await db.commit()
+    return RedirectResponse("/admin/sources?flash=Source+updated&flash_type=success", status_code=303)
 
 
 @router.post("/admin/sources/{src_id}/delete")
@@ -283,7 +358,7 @@ async def delete_source(src_id: str, _=Depends(require_api_key)):
     db = await get_db()
     await db.execute("DELETE FROM news_sources WHERE id = ?", (src_id,))
     await db.commit()
-    return RedirectResponse("/admin/sources", status_code=303)
+    return RedirectResponse("/admin/sources?flash=Source+deleted&flash_type=success", status_code=303)
 
 
 # --- Hosts ---
@@ -292,7 +367,7 @@ async def hosts_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT * FROM hosts ORDER BY id")
     hosts = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("hosts.html", {"request": request, "hosts": hosts})
+    return templates.TemplateResponse("hosts.html", {"request": request, "nav_active": "hosts", "hosts": hosts})
 
 
 @router.post("/admin/hosts/{host_id}")
@@ -315,7 +390,7 @@ async def update_host(host_id: str, request: Request, _=Depends(require_api_key)
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/hosts", status_code=303)
+    return RedirectResponse("/admin/hosts?flash=Host+updated&flash_type=success", status_code=303)
 
 
 # --- TTS Settings ---
@@ -326,7 +401,7 @@ async def tts_settings_page(request: Request, _=Depends(require_api_key)):
         "SELECT key, value FROM settings WHERE key IN ('elevenlabs_api_key', 'openai_tts_model', 'tts_default_provider')"
     )
     settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
-    return templates.TemplateResponse("tts_settings.html", {"request": request, "settings": settings})
+    return templates.TemplateResponse("tts_settings.html", {"request": request, "nav_active": "tts", "settings": settings})
 
 
 @router.post("/admin/tts")
@@ -341,7 +416,7 @@ async def update_tts_settings(request: Request, _=Depends(require_api_key)):
                 (key, val),
             )
     await db.commit()
-    return RedirectResponse("/admin/tts", status_code=303)
+    return RedirectResponse("/admin/tts?flash=TTS+settings+saved&flash_type=success", status_code=303)
 
 
 # --- Prompts ---
@@ -352,6 +427,7 @@ async def prompts_page(request: Request, _=Depends(require_api_key)):
     row = await cursor.fetchone()
     return templates.TemplateResponse("prompts.html", {
         "request": request,
+        "nav_active": "prompts",
         "master_prompt": row["value"] if row else "",
     })
 
@@ -365,7 +441,7 @@ async def update_prompts(request: Request, _=Depends(require_api_key)):
         (form.get("master_prompt", ""),),
     )
     await db.commit()
-    return RedirectResponse("/admin/prompts", status_code=303)
+    return RedirectResponse("/admin/prompts?flash=Prompt+saved&flash_type=success", status_code=303)
 
 
 # --- Music Library ---
@@ -432,9 +508,9 @@ async def music_page(request: Request, _=Depends(require_api_key)):
     files, total = _list_music_files()
     return templates.TemplateResponse("music.html", {
         "request": request,
+        "nav_active": "music",
         "files": files,
         "total_size_mb": total,
-        "message": request.query_params.get("msg"),
     })
 
 
@@ -467,10 +543,11 @@ async def music_upload(
         uploaded += 1
 
     # New files get appended to order automatically by _list_music_files
+    from urllib.parse import quote
     msg = f"Uploaded {uploaded} file(s)."
     if skipped:
         msg += f" Skipped: {', '.join(skipped)}"
-    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
+    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type=success", status_code=303)
 
 
 @router.post("/admin/music/delete")
@@ -481,6 +558,7 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
     safe_name = Path(filename).name
     target = MUSIC_DIR / safe_name
 
+    from urllib.parse import quote
     if target.exists() and target.suffix.lower() == ".mp3":
         target.unlink()
         # Remove from state
@@ -488,10 +566,10 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
         state["order"] = [n for n in state.get("order", []) if n != safe_name]
         state["disabled"] = [n for n in state.get("disabled", []) if n != safe_name]
         _save_playlist_state(state)
-        msg = f"Deleted {safe_name}"
+        msg, ftype = f"Deleted {safe_name}", "success"
     else:
-        msg = f"File not found: {safe_name}"
-    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
+        msg, ftype = f"File not found: {safe_name}", "error"
+    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type={ftype}", status_code=303)
 
 
 @router.post("/admin/music/toggle")
@@ -552,11 +630,12 @@ async def music_reload(request: Request, _=Depends(require_api_key)):
     # Tell Liquidsoap to reload
     from core.services import liquidsoap_client
     ok = await liquidsoap_client.reload_playlist()
+    from urllib.parse import quote
     msg = f"Playlist updated ({count} tracks)" if ok else f"Playlist file updated ({count} tracks) but Liquidsoap not connected"
-    return RedirectResponse(f"/admin/music?msg={msg}", status_code=303)
+    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type=success", status_code=303)
 
 
 # --- Breaking page ---
 @router.get("/admin/breaking", response_class=HTMLResponse)
 async def breaking_page(request: Request, _=Depends(require_api_key)):
-    return templates.TemplateResponse("breaking.html", {"request": request})
+    return templates.TemplateResponse("breaking.html", {"request": request, "nav_active": "breaking"})

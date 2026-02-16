@@ -19,9 +19,11 @@
         <button type="submit" class="contrast">Trigger Breaking</button>
     </form>
 
-    <div id="result" style="margin-top: 1rem;"></div>
+    <div id="result" class="mt-1"></div>
 </article>
+{% endblock %}
 
+{% block scripts %}
 <script>
 document.getElementById('breaking-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -40,7 +42,7 @@ document.getElementById('breaking-form').addEventListener('submit', async (e) =>
             <p>Sting injected: ${data.sting_injected}</p>
             <p>Clip ETA: ~${data.clip_eta_seconds}s</p>`;
     } catch (err) {
-        resultDiv.innerHTML = `<p style="color: var(--pico-del-color);">Error: ${err.message}</p>`;
+        resultDiv.innerHTML = `<p class="text-danger">Error: ${err.message}</p>`;
     }
 });
 </script>

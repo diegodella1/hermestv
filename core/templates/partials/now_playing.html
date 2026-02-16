@@ -1,3 +1,7 @@
 <div id="now-playing">
-    <p>Track count: <strong>{{ track_count or '?' }}</strong></p>
+    <p>Track count: <strong>{{ track_count or '?' }}</strong>
+    {% if quiet_mode %} <span class="badge badge-warn">Quiet</span>{% endif %}
+    {% if break_preparing %} <span class="badge badge-warn">Preparing</span>{% endif %}
+    {% if break_ready %} <span class="badge badge-ok">Ready</span>{% endif %}
+    </p>
 </div>

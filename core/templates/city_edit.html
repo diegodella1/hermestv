@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Edit City — Hermes Radio{% endblock %}
+{% block content %}
+<h2>Edit City: {{ city.label }}</h2>
+
+<form method="post" action="/admin/cities/{{ city.id }}">
+    <div class="grid">
+        <label>
+            ID
+            <input type="text" value="{{ city.id }}" disabled>
+        </label>
+        <label>
+            Label
+            <input type="text" name="label" value="{{ city.label }}" required>
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Latitude
+            <input type="number" name="lat" value="{{ city.lat }}" step="0.0001" required>
+        </label>
+        <label>
+            Longitude
+            <input type="number" name="lon" value="{{ city.lon }}" step="0.0001" required>
+        </label>
+        <label>
+            Timezone
+            <input type="text" name="tz" value="{{ city.tz }}">
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Units
+            <select name="units">
+                <option value="metric" {{ 'selected' if city.units == 'metric' else '' }}>Metric</option>
+                <option value="imperial" {{ 'selected' if city.units == 'imperial' else '' }}>Imperial</option>
+            </select>
+        </label>
+        <label>
+            Priority
+            <input type="number" name="priority" value="{{ city.priority }}">
+        </label>
+        <label>
+            <input type="checkbox" name="enabled" {{ 'checked' if city.enabled else '' }}>
+            Enabled
+        </label>
+    </div>
+    <div class="flex-row">
+        <button type="submit">Save</button>
+        <a href="/admin/cities" role="button" class="outline secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

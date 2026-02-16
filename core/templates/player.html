@@ -5,24 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hermes Radio</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    <style>
-        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        .player-card { text-align: center; max-width: 420px; width: 100%; }
-        .player-card h1 { margin-bottom: 0.25rem; }
-        .player-card .subtitle { color: var(--pico-muted-color); margin-bottom: 1.5rem; }
-        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
-        .status-dot.on { background: #22c55e; }
-        .status-dot.off { background: #ef4444; }
-        .status-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
-        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-        .controls { display: flex; gap: 0.75rem; justify-content: center; margin: 1.5rem 0; }
-        .controls button { min-width: 120px; }
-        #volume-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
-        #volume-row input { flex: 1; }
-        #volume-label { min-width: 3ch; text-align: right; }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
+<body class="player-wrapper">
     <main class="container">
         <article class="player-card">
             <h1>Hermes Radio</h1>
@@ -33,12 +18,9 @@
                 <span id="status-text">Checking...</span>
             </p>
 
-            <div class="controls">
-                <button id="btn-start" class="outline" onclick="startRadio()">Start Radio</button>
-                <button id="btn-stop" class="outline secondary" onclick="stopRadio()">Stop Radio</button>
-            </div>
+            <div class="now-playing-strip" id="now-playing"></div>
 
-            <audio id="audio" style="display:none"></audio>
+            <audio id="audio" class="hidden"></audio>
 
             <div class="controls">
                 <button id="btn-listen" onclick="togglePlay()">Listen</button>
@@ -50,8 +32,13 @@
                 <span id="volume-label">80</span>
             </div>
 
-            <p style="margin-top:2rem">
-                <a href="/admin/" role="button" class="outline secondary" style="font-size:0.85rem">Admin Panel</a>
+            <div class="controls mt-2">
+                <button id="btn-start" class="outline secondary btn-sm" onclick="startRadio()">Start Radio</button>
+                <button id="btn-stop" class="outline secondary btn-sm" onclick="stopRadio()">Stop Radio</button>
+            </div>
+
+            <p class="mt-2">
+                <a href="/admin/" role="button" class="outline secondary btn-sm">Admin Panel</a>
             </p>
         </article>
     </main>
@@ -64,6 +51,7 @@
         const btnListen = document.getElementById('btn-listen');
         const btnStart = document.getElementById('btn-start');
         const btnStop = document.getElementById('btn-stop');
+        const nowPlaying = document.getElementById('now-playing');
         let hls = null;
         let isPlaying = false;
         let radioRunning = false;
@@ -125,7 +113,6 @@
                     btnStart.ariaBusy = 'false';
                     return;
                 }
-                // Wait a few seconds for HLS segments to appear
                 await new Promise(r => setTimeout(r, 6000));
             } catch(e) {}
             btnStart.ariaBusy = 'false';
@@ -156,9 +143,23 @@
                 radioRunning = false;
             }
             updateUI();
+            updateNowPlaying();
         }
 
-        // Poll status every 10s
+        async function updateNowPlaying() {
+            try {
+                const res = await fetch('/api/status/now-playing');
+                const data = await res.json();
+                const parts = [];
+                if (data.tracks_since_last_break != null) parts.push(`Track ${data.tracks_since_last_break}`);
+                if (data.quiet_mode) parts.push('Quiet mode');
+                if (data.break_preparing) parts.push('Preparing break...');
+                nowPlaying.textContent = parts.join(' \u00B7 ') || '';
+            } catch(e) {
+                nowPlaying.textContent = '';
+            }
+        }
+
         checkStatus();
         setInterval(checkStatus, 10000);
     </script>

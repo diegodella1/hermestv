@@ -3,6 +3,7 @@
 {% block content %}
 <h2>Weather Cities</h2>
 
+<div class="table-wrap">
 <table>
     <thead>
         <tr>
@@ -29,14 +30,19 @@
             <td>{{ city.priority }}</td>
             <td>{{ 'Yes' if city.enabled else 'No' }}</td>
             <td>
-                <form method="post" action="/admin/cities/{{ city.id }}/delete" style="display:inline">
-                    <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; margin: 0;">Delete</button>
-                </form>
+                <div class="flex-row-tight">
+                    <a href="/admin/cities/{{ city.id }}" role="button" class="outline btn-sm">Edit</a>
+                    <form method="post" action="/admin/cities/{{ city.id }}/delete" class="inline-form"
+                          onsubmit="return confirm('Delete {{ city.label }}?')">
+                        <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
+                    </form>
+                </div>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 <details>
     <summary>Add City</summary>

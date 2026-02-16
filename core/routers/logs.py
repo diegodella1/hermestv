@@ -39,6 +39,7 @@ async def logs_page(request: Request, _=Depends(require_api_key)):
 
     return templates.TemplateResponse("logs.html", {
         "request": request,
+        "nav_active": "logs",
         "logs": logs,
         "total": total,
         "limit": limit,

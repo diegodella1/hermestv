@@ -1,0 +1,19 @@
+<div class="stat-row" id="dashboard-stats"
+     hx-get="/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
+    <article class="stat-card">
+        <div class="stat-value">{{ track_count if track_count is not none else '?' }}</div>
+        <div class="stat-label">Track Count</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ breaks_played }}</div>
+        <div class="stat-label">Breaks Played</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ breaks_failed }}</div>
+        <div class="stat-label">Breaks Failed</div>
+    </article>
+    <article class="stat-card">
+        <div class="stat-value">{{ 'ON' if quiet_mode else 'OFF' }}</div>
+        <div class="stat-label">Quiet Mode</div>
+    </article>
+</div>

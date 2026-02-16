@@ -3,6 +3,7 @@
 {% block content %}
 <h2>News Sources</h2>
 
+<div class="table-wrap">
 <table>
     <thead>
         <tr>
@@ -22,7 +23,7 @@
         <tr>
             <td>{{ src.label }}</td>
             <td>{{ src.type or 'rss' }}</td>
-            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ src.url }}</td>
+            <td class="cell-truncate">{{ src.url }}</td>
             <td>{{ src.category }}</td>
             <td>{{ src.weight }}</td>
             <td>
@@ -33,14 +34,19 @@
             <td>{{ src.consecutive_failures or 0 }}</td>
             <td>{{ 'Yes' if src.enabled else 'No' }}</td>
             <td>
-                <form method="post" action="/admin/sources/{{ src.id }}/delete" style="display:inline">
-                    <button type="submit" class="outline secondary" style="padding: 0.25rem 0.5rem; margin: 0;">Delete</button>
-                </form>
+                <div class="flex-row-tight">
+                    <a href="/admin/sources/{{ src.id }}" role="button" class="outline btn-sm">Edit</a>
+                    <form method="post" action="/admin/sources/{{ src.id }}/delete" class="inline-form"
+                          onsubmit="return confirm('Delete {{ src.label }}?')">
+                        <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
+                    </form>
+                </div>
             </td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 <details>
     <summary>Add Source</summary>

@@ -12,11 +12,12 @@
         Limit
         <input type="number" name="limit" value="{{ limit }}" min="10" max="200">
     </label>
-    <button type="submit" style="align-self: end;">Filter</button>
+    <button type="submit" class="align-end">Filter</button>
 </form>
 
 <p>Showing {{ logs|length }} of {{ total }} events</p>
 
+<div class="table-wrap">
 <table>
     <thead>
         <tr>
@@ -32,13 +33,12 @@
             <td>{{ log.timestamp }}</td>
             <td>{{ log.event_type }}</td>
             <td>{{ log.latency_ms or '-' }}ms</td>
-            <td style="max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                {{ log.payload_json or '' }}
-            </td>
+            <td class="cell-truncate-lg">{{ log.payload_json or '' }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+</div>
 
 {% if offset > 0 %}
 <a href="/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset - limit }}" role="button" class="outline">Previous</a>

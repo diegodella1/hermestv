@@ -1,0 +1,18 @@
+<article id="last-break-card"
+         hx-get="/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
+    <header>Last Break</header>
+    {% if last_break %}
+    <p><strong>Host:</strong> {{ host_names.get(last_break.host_id, last_break.host_id) }}</p>
+    <p><strong>Type:</strong> {{ last_break.type }}</p>
+    <p><strong>Degradation:</strong> Level {{ last_break.degradation_level }}</p>
+    <p><strong>Played:</strong> {{ last_break.played_at }}</p>
+    {% if last_break.script_text %}
+    <details>
+        <summary>Script</summary>
+        <p>{{ last_break.script_text }}</p>
+    </details>
+    {% endif %}
+    {% else %}
+    <p class="text-muted">No breaks played yet</p>
+    {% endif %}
+</article>

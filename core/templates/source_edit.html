@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Edit Source — Hermes Radio{% endblock %}
+{% block content %}
+<h2>Edit Source: {{ source.label }}</h2>
+
+<form method="post" action="/admin/sources/{{ source.id }}">
+    <div class="grid">
+        <label>
+            ID
+            <input type="text" value="{{ source.id }}" disabled>
+        </label>
+        <label>
+            Label
+            <input type="text" name="label" value="{{ source.label }}" required>
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Type
+            <select name="type">
+                <option value="rss" {{ 'selected' if source.type == 'rss' or not source.type else '' }}>RSS / Atom</option>
+                <option value="json" {{ 'selected' if source.type == 'json' else '' }}>JSON Feed</option>
+            </select>
+        </label>
+        <label>
+            URL
+            <input type="url" name="url" value="{{ source.url }}" required>
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Category
+            <input type="text" name="category" value="{{ source.category }}">
+        </label>
+        <label>
+            Weight
+            <input type="number" name="weight" value="{{ source.weight }}" step="0.1">
+        </label>
+        <label>
+            Poll interval (s)
+            <input type="number" name="poll_interval_seconds" value="{{ source.poll_interval_seconds }}">
+        </label>
+    </div>
+    <label>
+        <input type="checkbox" name="enabled" {{ 'checked' if source.enabled else '' }}>
+        Enabled
+    </label>
+    <div class="flex-row">
+        <button type="submit">Save</button>
+        <a href="/admin/sources" role="button" class="outline secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}
