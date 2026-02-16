@@ -96,6 +96,7 @@ async def generate_break_script(
     master_prompt: str,
     is_breaking: bool = False,
     recent_tracks: list[dict] | None = None,
+    max_words: int | None = None,
 ) -> str | None:
     """Generate a radio break script using GPT-4o-mini."""
     client = _get_client()
@@ -104,7 +105,10 @@ async def generate_break_script(
 
     system = f"{master_prompt}\n\n{host.get('personality_prompt', '')}"
     if is_breaking:
-        system += "\n\nThis is a BREAKING NEWS break. Be more urgent. 20-35 words max."
+        bk_max = max_words or 50
+        system += f"\n\nThis is a BREAKING NEWS break. Be more urgent. {bk_max} words max."
+    elif max_words:
+        system += f"\n\nKeep the break under {max_words} words."
 
     context = _format_context(weather_data, headlines, recent_tracks)
 

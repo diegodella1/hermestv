@@ -95,9 +95,18 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
 
         # 3. Generate script
         master_prompt = settings.get("master_prompt", "You are a radio host.")
+        if is_breaking:
+            s_min_w = int(settings.get("breaking_min_words", "10"))
+            s_max_w = int(settings.get("breaking_max_words", "50"))
+        else:
+            s_min_w = int(settings.get("break_min_words", "15"))
+            s_max_w = int(settings.get("break_max_words", "100"))
+        s_max_c = int(settings.get("break_max_chars", "600"))
+
         script = await llm.generate_break_script(
             weather_data, headlines, host, master_prompt, is_breaking,
             recent_tracks=recent_tracks,
+            max_words=s_max_w,
         )
 
         # 4. Fallback if LLM failed
@@ -123,7 +132,10 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 return
 
         # 5. Content filter
-        valid, reason = content_filter.validate(script, is_breaking)
+        valid, reason = content_filter.validate(
+            script, is_breaking,
+            min_words=s_min_w, max_words=s_max_w, max_chars=s_max_c,
+        )
         if not valid:
             print(f"[builder] Content filter rejected: {reason}")
             # Try fallback

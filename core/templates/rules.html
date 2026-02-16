@@ -50,6 +50,32 @@
         </label>
     </div>
 
+    <h3>Break Length</h3>
+    <div class="grid">
+        <label>
+            Min words
+            <input type="number" name="break_min_words" value="{{ settings.get('break_min_words', '15') }}" min="5" max="50">
+        </label>
+        <label>
+            Max words
+            <input type="number" name="break_max_words" value="{{ settings.get('break_max_words', '100') }}" min="20" max="300">
+        </label>
+        <label>
+            Max chars
+            <input type="number" name="break_max_chars" value="{{ settings.get('break_max_chars', '600') }}" min="100" max="2000">
+        </label>
+    </div>
+    <div class="grid">
+        <label>
+            Breaking min words
+            <input type="number" name="breaking_min_words" value="{{ settings.get('breaking_min_words', '10') }}" min="5" max="30">
+        </label>
+        <label>
+            Breaking max words
+            <input type="number" name="breaking_max_words" value="{{ settings.get('breaking_max_words', '50') }}" min="10" max="100">
+        </label>
+    </div>
+
     <button type="submit">Save</button>
 </form>
 {% endblock %}

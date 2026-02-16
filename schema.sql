@@ -23,6 +23,11 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('elevenlabs_api_key', ''),
     ('openai_tts_model', 'tts-1'),
     ('tts_default_provider', 'piper'),
+    ('break_min_words', '15'),
+    ('break_max_words', '100'),
+    ('break_max_chars', '600'),
+    ('breaking_min_words', '10'),
+    ('breaking_max_words', '50'),
     ('master_prompt', 'You are a radio host for Roxom Radio, a modern indie-style internet radio station.
 
 RULES — you must always follow these:

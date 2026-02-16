@@ -32,7 +32,7 @@ async def fetch_all_feeds() -> list[dict]:
 
     db = await get_db()
     cursor = await db.execute(
-        """SELECT ns.id, ns.label, ns.url, ns.category, ns.weight
+        """SELECT ns.id, ns.label, ns.url, ns.category, ns.weight, ns.type
            FROM news_sources ns
            JOIN feed_health fh ON fh.source_id = ns.id
            WHERE ns.enabled = 1 AND fh.status != 'dead'
@@ -52,6 +52,48 @@ async def fetch_all_feeds() -> list[dict]:
     return all_headlines
 
 
+def _parse_rss_entries(content: str) -> list[dict]:
+    """Parse RSS/Atom feed content into normalized entry dicts."""
+    feed = feedparser.parse(content)
+    entries = []
+    for entry in feed.entries[:20]:
+        title = _sanitize(entry.get("title", ""), 200)
+        if not title:
+            continue
+        desc = _sanitize(entry.get("summary", entry.get("description", "")), 300)
+        pub = entry.get("published_parsed")
+        pub_dt = (
+            datetime(*pub[:6], tzinfo=timezone.utc).isoformat()
+            if pub
+            else None
+        )
+        entries.append({
+            "title": title,
+            "description": desc,
+            "url": entry.get("link", ""),
+            "published_at": pub_dt,
+        })
+    return entries
+
+
+def _parse_json_feed_entries(content: str) -> list[dict]:
+    """Parse JSON Feed v1.1 content into normalized entry dicts."""
+    data = json.loads(content)
+    entries = []
+    for item in data.get("items", [])[:20]:
+        title = _sanitize(item.get("title", ""), 200)
+        if not title:
+            continue
+        desc = _sanitize(item.get("content_text", item.get("summary", "")), 300)
+        entries.append({
+            "title": title,
+            "description": desc,
+            "url": item.get("url", ""),
+            "published_at": item.get("date_published", None),
+        })
+    return entries
+
+
 async def _fetch_feed(source: dict) -> list[dict]:
     db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
@@ -62,15 +104,15 @@ async def _fetch_feed(source: dict) -> list[dict]:
             resp.raise_for_status()
             content = resp.text
 
-        feed = feedparser.parse(content)
-        entries = feed.entries[:20]  # limit per feed
+        # Parse based on source type
+        if source.get("type") == "json":
+            entries = _parse_json_feed_entries(content)
+        else:
+            entries = _parse_rss_entries(content)
 
         headlines = []
         for entry in entries:
-            title = _sanitize(entry.get("title", ""), 200)
-            if not title:
-                continue
-
+            title = entry["title"]
             th = _title_hash(title)
             news_id = f"{source['id']}_{th}"
 
@@ -81,13 +123,7 @@ async def _fetch_feed(source: dict) -> list[dict]:
             if await cursor.fetchone():
                 continue
 
-            desc = _sanitize(entry.get("summary", entry.get("description", "")), 300)
-            pub = entry.get("published_parsed")
-            pub_dt = (
-                datetime(*pub[:6], tzinfo=timezone.utc).isoformat()
-                if pub
-                else now
-            )
+            pub_dt = entry["published_at"] or now
 
             await db.execute(
                 """INSERT OR IGNORE INTO cache_news
@@ -97,8 +133,8 @@ async def _fetch_feed(source: dict) -> list[dict]:
                     news_id,
                     source["id"],
                     title,
-                    desc,
-                    entry.get("link", ""),
+                    entry["description"],
+                    entry["url"],
                     pub_dt,
                     now,
                     th,
@@ -110,7 +146,7 @@ async def _fetch_feed(source: dict) -> list[dict]:
                 {
                     "id": news_id,
                     "title": title,
-                    "description": desc,
+                    "description": entry["description"],
                     "source": source["label"],
                     "category": source.get("category", "general"),
                     "published_at": pub_dt,

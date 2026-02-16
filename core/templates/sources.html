@@ -7,6 +7,7 @@
     <thead>
         <tr>
             <th>Label</th>
+            <th>Type</th>
             <th>URL</th>
             <th>Category</th>
             <th>Weight</th>
@@ -20,6 +21,7 @@
         {% for src in sources %}
         <tr>
             <td>{{ src.label }}</td>
+            <td>{{ src.type or 'rss' }}</td>
             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ src.url }}</td>
             <td>{{ src.category }}</td>
             <td>{{ src.weight }}</td>
@@ -55,6 +57,13 @@
         </div>
         <div class="grid">
             <label>
+                Type
+                <select name="type">
+                    <option value="rss" selected>RSS / Atom</option>
+                    <option value="json">JSON Feed</option>
+                </select>
+            </label>
+            <label>
                 Category
                 <input type="text" name="category" value="general">
             </label>
@@ -62,6 +71,8 @@
                 Weight
                 <input type="number" name="weight" value="1.0" step="0.1">
             </label>
+        </div>
+        <div class="grid">
             <label>
                 Poll interval (s)
                 <input type="number" name="poll_interval_seconds" value="300">

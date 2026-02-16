@@ -8,12 +8,20 @@ BLOCKED_WORDS = [
     "breaking news",  # avoid if not actually breaking
 ]
 
-MIN_WORDS = 15
-MAX_WORDS = 100
-MAX_CHARS = 600
+DEFAULT_MIN_WORDS = 15
+DEFAULT_MAX_WORDS = 100
+DEFAULT_MAX_CHARS = 600
+DEFAULT_BREAKING_MIN_WORDS = 10
+DEFAULT_BREAKING_MAX_WORDS = 50
 
 
-def validate(script: str, is_breaking: bool = False) -> tuple[bool, str]:
+def validate(
+    script: str,
+    is_breaking: bool = False,
+    min_words: int | None = None,
+    max_words: int | None = None,
+    max_chars: int | None = None,
+) -> tuple[bool, str]:
     """
     Validate a generated script.
     Returns (is_valid, reason).
@@ -23,8 +31,14 @@ def validate(script: str, is_breaking: bool = False) -> tuple[bool, str]:
 
     words = script.split()
 
-    min_w = 10 if is_breaking else MIN_WORDS
-    max_w = 50 if is_breaking else MAX_WORDS
+    if is_breaking:
+        min_w = min_words if min_words is not None else DEFAULT_BREAKING_MIN_WORDS
+        max_w = max_words if max_words is not None else DEFAULT_BREAKING_MAX_WORDS
+    else:
+        min_w = min_words if min_words is not None else DEFAULT_MIN_WORDS
+        max_w = max_words if max_words is not None else DEFAULT_MAX_WORDS
+
+    max_c = max_chars if max_chars is not None else DEFAULT_MAX_CHARS
 
     if len(words) < min_w:
         return False, f"too short ({len(words)} words, min {min_w})"
@@ -32,8 +46,8 @@ def validate(script: str, is_breaking: bool = False) -> tuple[bool, str]:
     if len(words) > max_w:
         return False, f"too long ({len(words)} words, max {max_w})"
 
-    if len(script) > MAX_CHARS:
-        return False, f"exceeds {MAX_CHARS} chars"
+    if len(script) > max_c:
+        return False, f"exceeds {max_c} chars"
 
     lower = script.lower()
 

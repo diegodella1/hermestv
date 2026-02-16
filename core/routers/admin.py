@@ -136,7 +136,9 @@ async def update_rules(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     for key in ["every_n_tracks", "prepare_at_track", "cooldown_seconds",
                 "break_timeout_seconds", "quiet_mode", "quiet_hours_start",
-                "quiet_hours_end", "breaking_score_threshold", "news_dedupe_window_minutes"]:
+                "quiet_hours_end", "breaking_score_threshold", "news_dedupe_window_minutes",
+                "break_min_words", "break_max_words", "break_max_chars",
+                "breaking_min_words", "breaking_max_words"]:
         val = form.get(key)
         if val is not None:
             if key == "quiet_mode":
