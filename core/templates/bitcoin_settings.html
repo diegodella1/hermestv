@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Bitcoin — Hermes Radio{% endblock %}
+{% block content %}
+<h2>Bitcoin Market Data</h2>
+
+<form method="post" action="/admin/bitcoin">
+    <article>
+        <header>Enable / Disable</header>
+        <label>
+            <input type="checkbox" name="bitcoin_enabled" role="switch"
+                   {{ 'checked' if settings.get('bitcoin_enabled') == 'true' else '' }}>
+            Include Bitcoin data in breaks
+        </label>
+        <small>When enabled, Bitcoin price and market data will be included as context for the AI host during breaks.</small>
+    </article>
+
+    <article>
+        <header>API Key</header>
+        <label>
+            Roxom API Key
+            <input type="password" name="bitcoin_api_key"
+                   value="{{ settings.get('bitcoin_api_key', '') }}"
+                   placeholder="Enter your Roxom API key">
+        </label>
+        <small>Get your key at <code>rtvapi.roxom.com</code></small>
+    </article>
+
+    <article>
+        <header>Cache</header>
+        <label>
+            Cache TTL (seconds)
+            <input type="number" name="bitcoin_cache_ttl"
+                   value="{{ settings.get('bitcoin_cache_ttl', '300') }}"
+                   min="60" max="3600" step="60">
+        </label>
+        <small>How long to cache Bitcoin data before fetching again. Default: 300 (5 minutes).</small>
+    </article>
+
+    <button type="submit">Save Bitcoin Settings</button>
+</form>
+
+<article>
+    <header>Data included in breaks</header>
+    <p>When enabled, the AI host receives:</p>
+    <ul>
+        <li><strong>Price</strong> — live price, 24h change, market cap, sats per dollar</li>
+        <li><strong>ETF Trading</strong> — spot volume, AUM, BTC holdings</li>
+        <li><strong>Corporate Treasuries</strong> — public + private company holdings</li>
+        <li><strong>Government Treasuries</strong> — sovereign BTC reserves</li>
+    </ul>
+    <small>If the API is down, stale cached data shows only the price with a "(last check)" note. If no data is available at all, the break continues without Bitcoin info.</small>
+</article>
+{% endblock %}

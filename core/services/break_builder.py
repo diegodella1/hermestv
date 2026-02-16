@@ -5,7 +5,7 @@ import time
 from datetime import datetime, timezone
 
 from core.database import get_db
-from core.providers import weather, news, llm, tts_router
+from core.providers import weather, news, llm, tts_router, bitcoin
 from core.services import (
     break_queue,
     content_filter,
@@ -60,8 +60,19 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             host_id=host["id"],
         )
 
-        # 1. Weather
-        weather_data = await weather.get_weather_for_cities()
+        # 1. Weather + Bitcoin (parallel)
+        import asyncio
+        weather_result, bitcoin_result = await asyncio.gather(
+            weather.get_weather_for_cities(),
+            bitcoin.get_bitcoin_data(),
+            return_exceptions=True,
+        )
+        weather_data = weather_result if isinstance(weather_result, list) else []
+        bitcoin_data = bitcoin_result if isinstance(bitcoin_result, dict) else None
+        if isinstance(weather_result, Exception):
+            print(f"[builder] Weather error: {weather_result}")
+        if isinstance(bitcoin_result, Exception):
+            print(f"[builder] Bitcoin error: {bitcoin_result}")
 
         # 2. News — fetch, score, select
         headlines = []
@@ -107,6 +118,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             weather_data, headlines, host, master_prompt, is_breaking,
             recent_tracks=recent_tracks,
             max_words=s_max_w,
+            bitcoin_data=bitcoin_data,
         )
 
         # 4. Fallback if LLM failed
@@ -176,6 +188,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 "headlines": len(headlines),
                 "headline_ids": [h["id"] for h in headlines],
                 "weather_cities": len(weather_data),
+                "bitcoin": bitcoin_data is not None,
             },
         )
 

@@ -34,14 +34,19 @@ echo "[playout] Playlist: $(wc -l < "$PLAYLIST") tracks"
 # PIDs for cleanup
 FFMPEG_PID=""
 
-# Cleanup on exit
+# Cleanup on exit — also purge HLS so player doesn't get stale segments
 cleanup() {
     echo "[playout] Shutting down..."
     [ -n "$FFMPEG_PID" ] && kill "$FFMPEG_PID" 2>/dev/null || true
     rm -f "$FIFO"
+    rm -f "$HLS_DIR"/*.ts "$HLS_DIR"/*.m4s "$HLS_DIR"/*.m3u8 "$HLS_DIR"/*.mp4
+    echo "[playout] HLS segments purged"
     exit 0
 }
 trap cleanup EXIT TERM INT
+
+# Epoch-based start number avoids segment name collisions with browser cache
+START_NUM=$(( $(date +%s) % 100000 ))
 
 # Start FFmpeg reading from FIFO (background)
 ffmpeg -hide_banner -loglevel warning \
@@ -50,9 +55,10 @@ ffmpeg -hide_banner -loglevel warning \
   -f hls \
   -hls_time 4 \
   -hls_list_size 10 \
-  -hls_flags delete_segments+append_list+program_date_time \
+  -hls_flags delete_segments+discont_start+program_date_time \
   -hls_segment_type mpegts \
-  -hls_segment_filename "$HLS_DIR/radio_%03d.ts" \
+  -start_number "$START_NUM" \
+  -hls_segment_filename "$HLS_DIR/radio_%05d.ts" \
   "$HLS_DIR/radio.m3u8" \
   2>>"$LOGS/ffmpeg_stderr.log" &
 FFMPEG_PID=$!

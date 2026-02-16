@@ -520,6 +520,42 @@ async def update_tts_settings(request: Request, _=Depends(require_api_key)):
     return RedirectResponse("/admin/tts?flash=TTS+settings+saved&flash_type=success", status_code=303)
 
 
+# --- Bitcoin Settings ---
+@router.get("/admin/bitcoin", response_class=HTMLResponse)
+async def bitcoin_settings_page(request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT key, value FROM settings WHERE key IN "
+        "('bitcoin_enabled', 'bitcoin_api_key', 'bitcoin_cache_ttl')"
+    )
+    settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
+    return templates.TemplateResponse("bitcoin_settings.html", _template_ctx(request, "bitcoin", settings=settings))
+
+
+@router.post("/admin/bitcoin")
+async def update_bitcoin_settings(request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+
+    # Handle checkbox (unchecked = not sent)
+    enabled = "true" if form.get("bitcoin_enabled") == "on" else "false"
+    await db.execute(
+        "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+        ("bitcoin_enabled", enabled),
+    )
+
+    for key in ["bitcoin_api_key", "bitcoin_cache_ttl"]:
+        val = form.get(key)
+        if val is not None:
+            await db.execute(
+                "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now'))",
+                (key, val),
+            )
+
+    await db.commit()
+    return RedirectResponse("/admin/bitcoin?flash=Bitcoin+settings+saved&flash_type=success", status_code=303)
+
+
 # --- Prompts ---
 @router.get("/admin/prompts", response_class=HTMLResponse)
 async def prompts_page(request: Request, _=Depends(require_api_key)):

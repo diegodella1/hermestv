@@ -76,4 +76,25 @@ async def _migrate(db: aiosqlite.Connection):
             (key, default),
         )
 
+    # Ensure cache_bitcoin table exists
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS cache_bitcoin (
+            id TEXT PRIMARY KEY DEFAULT 'btc',
+            payload_json TEXT NOT NULL,
+            fetched_at TIMESTAMP NOT NULL,
+            expires_at TIMESTAMP NOT NULL
+        )
+    """)
+
+    # Ensure bitcoin settings exist
+    for key, default in [
+        ("bitcoin_enabled", "false"),
+        ("bitcoin_api_key", ""),
+        ("bitcoin_cache_ttl", "300"),
+    ]:
+        await db.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+            (key, default),
+        )
+
     await db.commit()

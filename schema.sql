@@ -28,6 +28,9 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('break_max_chars', '600'),
     ('breaking_min_words', '10'),
     ('breaking_max_words', '50'),
+    ('bitcoin_enabled', 'false'),
+    ('bitcoin_api_key', ''),
+    ('bitcoin_cache_ttl', '300'),
     ('master_prompt', 'You are a radio host for Roxom Radio, a modern indie-style internet radio station.
 
 RULES — you must always follow these:
@@ -158,6 +161,14 @@ INSERT OR IGNORE INTO feed_health (source_id) VALUES
 -- Cache: Weather
 CREATE TABLE IF NOT EXISTS cache_weather (
     city_id TEXT PRIMARY KEY REFERENCES cities(id) ON DELETE CASCADE,
+    payload_json TEXT NOT NULL,
+    fetched_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL
+);
+
+-- Cache: Bitcoin
+CREATE TABLE IF NOT EXISTS cache_bitcoin (
+    id TEXT PRIMARY KEY DEFAULT 'btc',
     payload_json TEXT NOT NULL,
     fetched_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL
