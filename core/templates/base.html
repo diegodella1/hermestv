@@ -4,78 +4,141 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Hermes Radio{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
-<body>
-    <nav class="container-fluid">
-        <ul>
-            <li><strong><a href="/admin/" style="text-decoration:none;color:inherit">Hermes Radio</a></strong></li>
-        </ul>
-        <details class="nav-toggle">
-            <summary>&#9776;</summary>
-        </details>
-        <ul class="nav-links">
-            <li class="nav-group">
-                <span class="nav-group-label">Status</span>
-                <a href="/admin/" class="{{ 'active' if nav_active == 'dashboard' else '' }}">Dashboard</a>
-            </li>
-            <li class="nav-sep">|</li>
-            <li class="nav-group">
-                <span class="nav-group-label">Content</span>
-                <a href="/admin/sources" class="{{ 'active' if nav_active == 'sources' else '' }}">Sources</a>
-                <a href="/admin/hosts" class="{{ 'active' if nav_active == 'hosts' else '' }}">Hosts</a>
-                <a href="/admin/prompts" class="{{ 'active' if nav_active == 'prompts' else '' }}">Prompts</a>
-            </li>
-            <li class="nav-sep">|</li>
-            <li class="nav-group">
-                <span class="nav-group-label">Config</span>
-                <a href="/admin/rules" class="{{ 'active' if nav_active == 'rules' else '' }}">Rules</a>
-                <a href="/admin/cities" class="{{ 'active' if nav_active == 'cities' else '' }}">Cities</a>
-                <a href="/admin/tts" class="{{ 'active' if nav_active == 'tts' else '' }}">TTS</a>
-            </li>
-            <li class="nav-sep">|</li>
-            <li class="nav-group">
-                <span class="nav-group-label">Tools</span>
-                <a href="/admin/music" class="{{ 'active' if nav_active == 'music' else '' }}">Music</a>
-                <a href="/admin/breaking" class="{{ 'active' if nav_active == 'breaking' else '' }}">Breaking</a>
-                <a href="/admin/logs" class="{{ 'active' if nav_active == 'logs' else '' }}">Logs</a>
-            </li>
-            <li class="nav-sep">|</li>
-            <li><a href="/admin/logout">Logout</a></li>
-        </ul>
-    </nav>
+<body hx-headers='{"X-CSRF-Token":"{{ csrf_token }}"}'>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <strong>Hermes Radio</strong>
+            <span class="sidebar-status" id="sidebar-status">
+                <span class="status-dot off" id="sidebar-dot"></span>
+                <span id="sidebar-status-text">Off Air</span>
+            </span>
+        </div>
+        <nav>
+            <span class="sidebar-group">Overview</span>
+            <a href="/admin/" class="{{ 'active' if nav_active == 'dashboard' else '' }}">Dashboard</a>
 
-    <div class="toast-container" id="toast-container"></div>
+            <span class="sidebar-group">Content</span>
+            <a href="/admin/sources" class="{{ 'active' if nav_active == 'sources' else '' }}">Sources</a>
+            <a href="/admin/hosts" class="{{ 'active' if nav_active == 'hosts' else '' }}">Hosts</a>
+            <a href="/admin/prompts" class="{{ 'active' if nav_active == 'prompts' else '' }}">Prompts</a>
 
-    <main class="container">
-        {% block content %}{% endblock %}
-    </main>
+            <span class="sidebar-group">Config</span>
+            <a href="/admin/rules" class="{{ 'active' if nav_active == 'rules' else '' }}">Rules</a>
+            <a href="/admin/cities" class="{{ 'active' if nav_active == 'cities' else '' }}">Cities</a>
+            <a href="/admin/tts" class="{{ 'active' if nav_active == 'tts' else '' }}">TTS</a>
 
-    <footer class="container">
-        <small class="text-muted">Hermes Radio</small>
-    </footer>
+            <span class="sidebar-group">Tools</span>
+            <a href="/admin/music" class="{{ 'active' if nav_active == 'music' else '' }}">Music</a>
+            <a href="/admin/breaking" class="{{ 'active' if nav_active == 'breaking' else '' }}">Breaking</a>
+            <a href="/admin/logs" class="{{ 'active' if nav_active == 'logs' else '' }}">Logs</a>
+
+            <div class="sidebar-bottom">
+                <a href="/" target="_blank">Player &#8599;</a>
+                <a href="/admin/logout" data-confirm="Log out?">Logout</a>
+            </div>
+        </nav>
+    </aside>
+
+    <div class="sidebar-overlay" onclick="document.body.classList.remove('sidebar-open')"></div>
+
+    <div class="main-content">
+        <header class="topbar">
+            <button class="sidebar-toggle" onclick="document.body.classList.toggle('sidebar-open')">&#9776;</button>
+            {% block breadcrumb %}{% endblock %}
+        </header>
+
+        <div class="toast-container" id="toast-container" role="alert" aria-live="polite"></div>
+
+        <main class="container">
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="container">
+            <small class="text-muted">Hermes Radio</small>
+        </footer>
+    </div>
 
     <script>
+    /* ── Toast system ── */
+    function showToast(text, type, duration) {
+        const container = document.getElementById('toast-container');
+        const el = document.createElement('div');
+        el.className = 'toast toast-' + (type || 'info');
+
+        const span = document.createElement('span');
+        span.textContent = text;
+        el.appendChild(span);
+
+        const close = document.createElement('button');
+        close.className = 'toast-close';
+        close.innerHTML = '&times;';
+        close.onclick = () => el.remove();
+        el.appendChild(close);
+
+        container.appendChild(el);
+
+        const ms = duration || (type === 'error' ? 6000 : 4000);
+        let timer = setTimeout(() => {
+            el.style.animation = 'toast-out 0.3s ease forwards';
+            setTimeout(() => el.remove(), 300);
+        }, ms);
+        el.addEventListener('mouseenter', () => clearTimeout(timer));
+        el.addEventListener('mouseleave', () => {
+            timer = setTimeout(() => {
+                el.style.animation = 'toast-out 0.3s ease forwards';
+                setTimeout(() => el.remove(), 300);
+            }, 1500);
+        });
+    }
+
+    /* Flash from URL params */
     (function() {
         const params = new URLSearchParams(window.location.search);
         const flash = params.get('flash');
         if (flash) {
-            const type = params.get('flash_type') || 'info';
-            const container = document.getElementById('toast-container');
-            const el = document.createElement('div');
-            el.className = 'toast toast-' + type;
-            el.textContent = flash;
-            container.appendChild(el);
-            setTimeout(() => el.remove(), 3500);
+            showToast(flash, params.get('flash_type') || 'info');
             params.delete('flash');
             params.delete('flash_type');
             const clean = params.toString();
-            const url = window.location.pathname + (clean ? '?' + clean : '');
-            history.replaceState(null, '', url);
+            history.replaceState(null, '', window.location.pathname + (clean ? '?' + clean : ''));
         }
     })();
+
+    /* ── Confirm delegation (XSS-safe) ── */
+    document.addEventListener('submit', e => {
+        const msg = e.target.dataset.confirm;
+        if (msg && !confirm(msg)) { e.preventDefault(); return; }
+    });
+    document.addEventListener('click', e => {
+        const a = e.target.closest('a[data-confirm]');
+        if (a && !confirm(a.dataset.confirm)) e.preventDefault();
+    });
+
+    /* ── Save button loading state ── */
+    document.addEventListener('submit', e => {
+        if (e.defaultPrevented) return;
+        const btn = e.target.querySelector('button[type="submit"]');
+        if (btn) { btn.ariaBusy = 'true'; btn.disabled = true; }
+    });
+
+    /* ── Sidebar status indicator ── */
+    async function updateSidebarStatus() {
+        try {
+            const res = await fetch('/api/playout/status');
+            const data = await res.json();
+            const dot = document.getElementById('sidebar-dot');
+            const text = document.getElementById('sidebar-status-text');
+            dot.className = 'status-dot ' + (data.running ? 'on' : 'off');
+            text.textContent = data.running ? 'On Air' : 'Off Air';
+        } catch(e) {}
+    }
+    updateSidebarStatus();
+    setInterval(updateSidebarStatus, 15000);
     </script>
     {% block scripts %}{% endblock %}
 </body>

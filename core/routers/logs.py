@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from core.database import get_db
-from core.routers.admin import require_api_key
+from core.routers.admin import require_api_key, _template_ctx
 
 router = APIRouter(tags=["logs"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -33,19 +33,24 @@ async def logs_page(request: Request, _=Depends(require_api_key)):
         )
     logs = [dict(r) for r in await cursor.fetchall()]
 
-    cursor = await db.execute("SELECT COUNT(*) as total FROM events_log")
+    if event_type:
+        cursor = await db.execute(
+            "SELECT COUNT(*) as total FROM events_log WHERE event_type LIKE ?",
+            (f"%{event_type}%",),
+        )
+    else:
+        cursor = await db.execute("SELECT COUNT(*) as total FROM events_log")
     total_row = await cursor.fetchone()
     total = total_row["total"] if total_row else 0
 
-    return templates.TemplateResponse("logs.html", {
-        "request": request,
-        "nav_active": "logs",
-        "logs": logs,
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "event_type": event_type,
-    })
+    return templates.TemplateResponse("logs.html", _template_ctx(
+        request, "logs",
+        logs=logs,
+        total=total,
+        limit=limit,
+        offset=offset,
+        event_type=event_type,
+    ))
 
 
 @router.get("/api/admin/logs")

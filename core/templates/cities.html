@@ -1,21 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Cities - Hermes Radio{% endblock %}
+{% block title %}Cities — Hermes Radio{% endblock %}
 {% block content %}
 <h2>Weather Cities</h2>
 
+{% if cities %}
 <div class="table-wrap">
 <table>
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Label</th>
-            <th>Lat</th>
-            <th>Lon</th>
-            <th>TZ</th>
-            <th>Units</th>
-            <th>Priority</th>
-            <th>Enabled</th>
-            <th>Actions</th>
+            <th scope="col">ID</th>
+            <th scope="col">Label</th>
+            <th scope="col">Lat</th>
+            <th scope="col">Lon</th>
+            <th scope="col">TZ</th>
+            <th scope="col">Units</th>
+            <th scope="col">Priority</th>
+            <th scope="col">Enabled</th>
+            <th scope="col">Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -33,7 +34,7 @@
                 <div class="flex-row-tight">
                     <a href="/admin/cities/{{ city.id }}" role="button" class="outline btn-sm">Edit</a>
                     <form method="post" action="/admin/cities/{{ city.id }}/delete" class="inline-form"
-                          onsubmit="return confirm('Delete {{ city.label }}?')">
+                          data-confirm="Delete {{ city.label|e }}?">
                         <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
                     </form>
                 </div>
@@ -43,6 +44,9 @@
     </tbody>
 </table>
 </div>
+{% else %}
+<p class="empty-state">No cities configured yet.</p>
+{% endif %}
 
 <details>
     <summary>Add City</summary>
@@ -50,7 +54,7 @@
         <div class="grid">
             <label>
                 ID
-                <input type="text" name="id" placeholder="nyc">
+                <input type="text" name="id" placeholder="nyc" pattern="[a-z0-9_-]+">
             </label>
             <label>
                 Label
@@ -60,11 +64,11 @@
         <div class="grid">
             <label>
                 Latitude
-                <input type="number" name="lat" step="0.0001" required>
+                <input type="number" name="lat" step="0.0001" min="-90" max="90" required>
             </label>
             <label>
                 Longitude
-                <input type="number" name="lon" step="0.0001" required>
+                <input type="number" name="lon" step="0.0001" min="-180" max="180" required>
             </label>
             <label>
                 Timezone

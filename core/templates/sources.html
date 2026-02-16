@@ -1,21 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Sources - Hermes Radio{% endblock %}
+{% block title %}Sources — Hermes Radio{% endblock %}
 {% block content %}
 <h2>News Sources</h2>
 
+{% if sources %}
 <div class="table-wrap">
 <table>
     <thead>
         <tr>
-            <th>Label</th>
-            <th>Type</th>
-            <th>URL</th>
-            <th>Category</th>
-            <th>Weight</th>
-            <th>Health</th>
-            <th>Failures</th>
-            <th>Enabled</th>
-            <th>Actions</th>
+            <th scope="col">Label</th>
+            <th scope="col">Type</th>
+            <th scope="col">URL</th>
+            <th scope="col">Category</th>
+            <th scope="col">Weight</th>
+            <th scope="col">Health</th>
+            <th scope="col">Failures</th>
+            <th scope="col">Enabled</th>
+            <th scope="col">Actions</th>
         </tr>
     </thead>
     <tbody>
@@ -37,7 +38,7 @@
                 <div class="flex-row-tight">
                     <a href="/admin/sources/{{ src.id }}" role="button" class="outline btn-sm">Edit</a>
                     <form method="post" action="/admin/sources/{{ src.id }}/delete" class="inline-form"
-                          onsubmit="return confirm('Delete {{ src.label }}?')">
+                          data-confirm="Delete {{ src.label|e }}?">
                         <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
                     </form>
                 </div>
@@ -47,6 +48,9 @@
     </tbody>
 </table>
 </div>
+{% else %}
+<p class="empty-state">No sources configured yet.</p>
+{% endif %}
 
 <details>
     <summary>Add Source</summary>

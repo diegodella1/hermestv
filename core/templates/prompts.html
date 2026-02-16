@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Prompts - Hermes Radio{% endblock %}
+{% block title %}Prompts — Hermes Radio{% endblock %}
 {% block content %}
 <h2>Master Prompt</h2>
 
+<article>
 <form method="post" action="/admin/prompts">
     <label>
         Master prompt (applied to all hosts):
@@ -10,6 +11,7 @@
     </label>
     <button type="submit">Save</button>
 </form>
+</article>
 
 <p><small>Individual host prompts are edited on the <a href="/admin/hosts">Hosts</a> page.</small></p>
 {% endblock %}

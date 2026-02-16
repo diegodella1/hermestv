@@ -33,12 +33,12 @@
     <table>
         <thead>
             <tr>
-                <th>#</th>
-                <th>Track</th>
-                <th>Size</th>
-                <th>Active</th>
-                <th>Order</th>
-                <th></th>
+                <th scope="col">#</th>
+                <th scope="col">Track</th>
+                <th scope="col">Size</th>
+                <th scope="col">Active</th>
+                <th scope="col">Order</th>
+                <th scope="col"></th>
             </tr>
         </thead>
         <tbody id="playlist-body">
@@ -48,11 +48,12 @@
                 <td class="track-name">{{ f.name }}</td>
                 <td>{{ f.size_mb }} MB</td>
                 <td>
-                    <form action="/admin/music/toggle" method="post" class="m-0">
+                    <form hx-post="/admin/music/toggle" hx-swap="none" class="m-0"
+                          hx-on::after-request="this.closest('tr').classList.toggle('disabled-track', !this.querySelector('input[type=checkbox]').checked)">
                         <input type="hidden" name="filename" value="{{ f.name }}">
-                        <input type="checkbox" role="switch" class="m-0"
+                        <input type="checkbox" role="switch" name="enabled" class="m-0"
                                {{ 'checked' if f.enabled else '' }}
-                               onchange="this.form.submit()">
+                               hx-trigger="change" hx-include="closest form">
                     </form>
                 </td>
                 <td>
@@ -63,7 +64,7 @@
                 </td>
                 <td>
                     <form action="/admin/music/delete" method="post" class="inline-form"
-                          onsubmit="return confirm('Delete {{ f.name }}?')">
+                          data-confirm="Delete {{ f.name|e }}?">
                         <input type="hidden" name="filename" value="{{ f.name }}">
                         <button type="submit" class="outline secondary btn-xs btn-danger">&#10005;</button>
                     </form>
@@ -75,7 +76,7 @@
     </div>
     <small class="text-muted">Drag rows or use arrows to reorder. Toggle switch to include/exclude from playlist. Click "Save &amp; Reload" to apply.</small>
     {% else %}
-    <p>No MP3 files yet. Upload some to get started.</p>
+    <p class="empty-state">No MP3 files yet. Upload some to get started.</p>
     {% endif %}
 </article>
 {% endblock %}
@@ -83,6 +84,7 @@
 {% block scripts %}
 <script>
 const tbody = document.getElementById('playlist-body');
+if (tbody) {
 let dragRow = null;
 
 tbody.addEventListener('dragstart', e => {
@@ -128,6 +130,7 @@ tbody.addEventListener('drop', e => {
     }
     renumber();
 });
+}
 
 function moveRow(btn, dir) {
     const row = btn.closest('tr');
@@ -145,15 +148,6 @@ function moveRow(btn, dir) {
 
 function renumber() {
     tbody.querySelectorAll('.row-num').forEach((td, i) => td.textContent = i + 1);
-}
-
-function showToast(text, type) {
-    const container = document.getElementById('toast-container');
-    const el = document.createElement('div');
-    el.className = 'toast toast-' + (type || 'info');
-    el.textContent = text;
-    container.appendChild(el);
-    setTimeout(() => el.remove(), 3500);
 }
 
 async function saveOrder() {

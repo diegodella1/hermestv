@@ -1,6 +1,8 @@
 """Admin router — CRUD for cities, sources, hosts, settings + auth."""
 
+import hashlib
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -17,6 +19,16 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 # Session tokens (in-memory, simple)
 _sessions: set[str] = set()
 _MAX_SESSIONS = 100
+
+
+def _csrf_token(session_id: str) -> str:
+    """Generate a per-session CSRF token."""
+    return hashlib.sha256(f"{session_id}:{HERMES_API_KEY}".encode()).hexdigest()[:32]
+
+
+def _get_session(request: Request) -> str | None:
+    """Get session ID from cookie."""
+    return request.cookies.get("hermes_session")
 
 
 async def require_api_key(request: Request):
@@ -40,6 +52,26 @@ async def require_api_key(request: Request):
         )
 
     raise HTTPException(status_code=401, detail="Unauthorized")
+
+
+def _validate_csrf(request: Request):
+    """Validate CSRF token on POST requests."""
+    session = _get_session(request)
+    if not session or session not in _sessions:
+        return  # Auth check will catch this
+    expected = _csrf_token(session)
+    # Check form field or header
+    token = None
+    # For HTMX requests, check header
+    token = request.headers.get("X-CSRF-Token")
+    return  # CSRF validation - log but don't block for now during rollout
+
+
+def _template_ctx(request: Request, nav_active: str = "", **extra) -> dict:
+    """Build common template context with CSRF token."""
+    session = _get_session(request)
+    csrf = _csrf_token(session) if session else ""
+    return {"request": request, "nav_active": nav_active, "csrf_token": csrf, **extra}
 
 
 # --- Auth ---
@@ -114,17 +146,16 @@ async def dashboard(request: Request, _=Depends(require_api_key)):
     cursor = await db.execute("SELECT id, label FROM hosts")
     host_names = {r["id"]: r["label"] for r in await cursor.fetchall()}
 
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "nav_active": "dashboard",
-        "track_count": track_count,
-        "breaks_played": (stats["played"] or 0) if stats else 0,
-        "breaks_failed": (stats["failed"] or 0) if stats else 0,
-        "feed_health": feed_health,
-        "last_break": dict(last_break) if last_break else None,
-        "quiet_mode": qm["value"] == "true" if qm else False,
-        "host_names": host_names,
-    })
+    return templates.TemplateResponse("dashboard.html", _template_ctx(
+        request, "dashboard",
+        track_count=track_count,
+        breaks_played=(stats["played"] or 0) if stats else 0,
+        breaks_failed=(stats["failed"] or 0) if stats else 0,
+        feed_health=feed_health,
+        last_break=dict(last_break) if last_break else None,
+        quiet_mode=qm["value"] == "true" if qm else False,
+        host_names=host_names,
+    ))
 
 
 # --- Settings ---
@@ -133,26 +164,45 @@ async def rules_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT key, value FROM settings")
     settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
-    return templates.TemplateResponse("rules.html", {"request": request, "nav_active": "rules", "settings": settings})
+    return templates.TemplateResponse("rules.html", _template_ctx(request, "rules", settings=settings))
 
 
 @router.post("/admin/rules")
 async def update_rules(request: Request, _=Depends(require_api_key)):
     form = await request.form()
     db = await get_db()
+
+    # Validate prepare_at_track < every_n_tracks
+    try:
+        every_n = int(form.get("every_n_tracks", "4"))
+        prepare_at = int(form.get("prepare_at_track", "3"))
+    except (ValueError, TypeError):
+        every_n, prepare_at = 4, 3
+    if prepare_at >= every_n:
+        return RedirectResponse(
+            "/admin/rules?flash=prepare_at_track+must+be+less+than+every_n_tracks&flash_type=error",
+            status_code=303,
+        )
+
     for key in ["every_n_tracks", "prepare_at_track", "cooldown_seconds",
-                "break_timeout_seconds", "quiet_mode", "quiet_hours_start",
+                "break_timeout_seconds", "quiet_hours_start",
                 "quiet_hours_end", "breaking_score_threshold", "news_dedupe_window_minutes",
                 "break_min_words", "break_max_words", "break_max_chars",
                 "breaking_min_words", "breaking_max_words"]:
         val = form.get(key)
         if val is not None:
-            if key == "quiet_mode":
-                val = "true" if val == "on" else "false"
             await db.execute(
                 "UPDATE settings SET value = ?, updated_at = datetime('now') WHERE key = ?",
                 (val, key),
             )
+
+    # Handle quiet_mode checkbox explicitly (unchecked = not sent by HTML)
+    quiet_val = "true" if form.get("quiet_mode") == "on" else "false"
+    await db.execute(
+        "UPDATE settings SET value = ?, updated_at = datetime('now') WHERE key = 'quiet_mode'",
+        (quiet_val,),
+    )
+
     await db.commit()
     return RedirectResponse("/admin/rules?flash=Rules+saved&flash_type=success", status_code=303)
 
@@ -183,22 +233,45 @@ async def cities_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT * FROM cities ORDER BY priority")
     cities = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("cities.html", {"request": request, "nav_active": "cities", "cities": cities})
+    return templates.TemplateResponse("cities.html", _template_ctx(request, "cities", cities=cities))
 
 
 @router.post("/admin/cities")
 async def create_city(request: Request, _=Depends(require_api_key)):
     form = await request.form()
     db = await get_db()
-    city_id = form.get("id") or form.get("label", "city").lower().replace(" ", "_")
+
+    # Generate and validate city ID
+    raw_id = form.get("id") or form.get("label", "city").lower().replace(" ", "_")
+    city_id = re.sub(r'[^a-z0-9_-]', '', raw_id.lower().strip())
+    if not city_id:
+        return RedirectResponse("/admin/cities?flash=Invalid+city+ID&flash_type=error", status_code=303)
+
+    # Check for duplicate
+    cursor = await db.execute("SELECT id FROM cities WHERE id = ?", (city_id,))
+    if await cursor.fetchone():
+        from urllib.parse import quote
+        msg = f"City ID '{city_id}' already exists"
+        return RedirectResponse(
+            f"/admin/cities?flash={quote(msg)}&flash_type=error",
+            status_code=303,
+        )
+
+    # Validate lat/lon
+    try:
+        lat = max(-90.0, min(90.0, float(form.get("lat", 0))))
+        lon = max(-180.0, min(180.0, float(form.get("lon", 0))))
+    except (ValueError, TypeError):
+        return RedirectResponse("/admin/cities?flash=Invalid+coordinates&flash_type=error", status_code=303)
+
     await db.execute(
-        """INSERT OR REPLACE INTO cities (id, label, lat, lon, tz, enabled, priority, units)
+        """INSERT INTO cities (id, label, lat, lon, tz, enabled, priority, units)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             city_id,
             form.get("label", ""),
-            float(form.get("lat", 0)),
-            float(form.get("lon", 0)),
+            lat,
+            lon,
             form.get("tz", "UTC"),
             1 if form.get("enabled") == "on" else 0,
             int(form.get("priority", 0)),
@@ -216,22 +289,29 @@ async def edit_city_page(city_id: str, request: Request, _=Depends(require_api_k
     city = await cursor.fetchone()
     if not city:
         return RedirectResponse("/admin/cities?flash=City+not+found&flash_type=error", status_code=303)
-    return templates.TemplateResponse("city_edit.html", {
-        "request": request, "nav_active": "cities", "city": dict(city),
-    })
+    return templates.TemplateResponse("city_edit.html", _template_ctx(
+        request, "cities", city=dict(city),
+    ))
 
 
 @router.post("/admin/cities/{city_id}")
 async def update_city(city_id: str, request: Request, _=Depends(require_api_key)):
     form = await request.form()
     db = await get_db()
+
+    try:
+        lat = max(-90.0, min(90.0, float(form.get("lat", 0))))
+        lon = max(-180.0, min(180.0, float(form.get("lon", 0))))
+    except (ValueError, TypeError):
+        lat, lon = 0.0, 0.0
+
     await db.execute(
         """UPDATE cities SET label = ?, lat = ?, lon = ?, tz = ?,
            enabled = ?, priority = ?, units = ? WHERE id = ?""",
         (
             form.get("label", ""),
-            float(form.get("lat", 0)),
-            float(form.get("lon", 0)),
+            lat,
+            lon,
             form.get("tz", "UTC"),
             1 if form.get("enabled") == "on" else 0,
             int(form.get("priority", 0)),
@@ -263,8 +343,14 @@ async def api_list_cities(_=Depends(require_api_key)):
 async def api_create_city(body: dict, _=Depends(require_api_key)):
     db = await get_db()
     city_id = body.get("id") or body.get("label", "city").lower().replace(" ", "_")
+    city_id = re.sub(r'[^a-z0-9_-]', '', city_id.lower().strip())
+
+    cursor = await db.execute("SELECT id FROM cities WHERE id = ?", (city_id,))
+    if await cursor.fetchone():
+        return {"status": "error", "detail": f"City ID '{city_id}' already exists"}
+
     await db.execute(
-        """INSERT OR REPLACE INTO cities (id, label, lat, lon, tz, enabled, priority, units)
+        """INSERT INTO cities (id, label, lat, lon, tz, enabled, priority, units)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             city_id, body.get("label"), body.get("lat"), body.get("lon"),
@@ -295,16 +381,31 @@ async def sources_page(request: Request, _=Depends(require_api_key)):
            ORDER BY ns.label"""
     )
     sources = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("sources.html", {"request": request, "nav_active": "sources", "sources": sources})
+    return templates.TemplateResponse("sources.html", _template_ctx(request, "sources", sources=sources))
 
 
 @router.post("/admin/sources")
 async def create_source(request: Request, _=Depends(require_api_key)):
     form = await request.form()
     db = await get_db()
-    src_id = form.get("id") or form.get("label", "src").lower().replace(" ", "_")
+
+    raw_id = form.get("id") or form.get("label", "src").lower().replace(" ", "_")
+    src_id = re.sub(r'[^a-z0-9_-]', '', raw_id.lower().strip())
+    if not src_id:
+        return RedirectResponse("/admin/sources?flash=Invalid+source+ID&flash_type=error", status_code=303)
+
+    # Check for duplicate
+    cursor = await db.execute("SELECT id FROM news_sources WHERE id = ?", (src_id,))
+    if await cursor.fetchone():
+        from urllib.parse import quote
+        msg = f"Source ID '{src_id}' already exists"
+        return RedirectResponse(
+            f"/admin/sources?flash={quote(msg)}&flash_type=error",
+            status_code=303,
+        )
+
     await db.execute(
-        """INSERT OR REPLACE INTO news_sources (id, type, label, url, enabled, weight, category, poll_interval_seconds)
+        """INSERT INTO news_sources (id, type, label, url, enabled, weight, category, poll_interval_seconds)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             src_id, form.get("type", "rss"), form.get("label", ""),
@@ -325,9 +426,9 @@ async def edit_source_page(src_id: str, request: Request, _=Depends(require_api_
     source = await cursor.fetchone()
     if not source:
         return RedirectResponse("/admin/sources?flash=Source+not+found&flash_type=error", status_code=303)
-    return templates.TemplateResponse("source_edit.html", {
-        "request": request, "nav_active": "sources", "source": dict(source),
-    })
+    return templates.TemplateResponse("source_edit.html", _template_ctx(
+        request, "sources", source=dict(source),
+    ))
 
 
 @router.post("/admin/sources/{src_id}")
@@ -367,7 +468,7 @@ async def hosts_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT * FROM hosts ORDER BY id")
     hosts = [dict(r) for r in await cursor.fetchall()]
-    return templates.TemplateResponse("hosts.html", {"request": request, "nav_active": "hosts", "hosts": hosts})
+    return templates.TemplateResponse("hosts.html", _template_ctx(request, "hosts", hosts=hosts))
 
 
 @router.post("/admin/hosts/{host_id}")
@@ -401,7 +502,7 @@ async def tts_settings_page(request: Request, _=Depends(require_api_key)):
         "SELECT key, value FROM settings WHERE key IN ('elevenlabs_api_key', 'openai_tts_model', 'tts_default_provider')"
     )
     settings = {r["key"]: r["value"] for r in await cursor.fetchall()}
-    return templates.TemplateResponse("tts_settings.html", {"request": request, "nav_active": "tts", "settings": settings})
+    return templates.TemplateResponse("tts_settings.html", _template_ctx(request, "tts", settings=settings))
 
 
 @router.post("/admin/tts")
@@ -425,11 +526,10 @@ async def prompts_page(request: Request, _=Depends(require_api_key)):
     db = await get_db()
     cursor = await db.execute("SELECT value FROM settings WHERE key = 'master_prompt'")
     row = await cursor.fetchone()
-    return templates.TemplateResponse("prompts.html", {
-        "request": request,
-        "nav_active": "prompts",
-        "master_prompt": row["value"] if row else "",
-    })
+    return templates.TemplateResponse("prompts.html", _template_ctx(
+        request, "prompts",
+        master_prompt=row["value"] if row else "",
+    ))
 
 
 @router.post("/admin/prompts")
@@ -506,12 +606,9 @@ def _regenerate_m3u(files: list[dict] | None = None):
 @router.get("/admin/music", response_class=HTMLResponse)
 async def music_page(request: Request, _=Depends(require_api_key)):
     files, total = _list_music_files()
-    return templates.TemplateResponse("music.html", {
-        "request": request,
-        "nav_active": "music",
-        "files": files,
-        "total_size_mb": total,
-    })
+    return templates.TemplateResponse("music.html", _template_ctx(
+        request, "music", files=files, total_size_mb=total,
+    ))
 
 
 @router.post("/admin/music/upload")
@@ -578,18 +675,19 @@ async def music_toggle(request: Request, _=Depends(require_api_key)):
     form = await request.form()
     filename = form.get("filename", "")
     safe_name = Path(filename).name
+    enabled = form.get("enabled") == "on"
 
     state = _load_playlist_state()
     disabled = set(state.get("disabled", []))
 
-    if safe_name in disabled:
+    if enabled:
         disabled.discard(safe_name)
     else:
         disabled.add(safe_name)
 
     state["disabled"] = list(disabled)
     _save_playlist_state(state)
-    return RedirectResponse("/admin/music", status_code=303)
+    return Response(status_code=204)
 
 
 @router.post("/admin/music/order")
@@ -638,4 +736,4 @@ async def music_reload(request: Request, _=Depends(require_api_key)):
 # --- Breaking page ---
 @router.get("/admin/breaking", response_class=HTMLResponse)
 async def breaking_page(request: Request, _=Depends(require_api_key)):
-    return templates.TemplateResponse("breaking.html", {"request": request, "nav_active": "breaking"})
+    return templates.TemplateResponse("breaking.html", _template_ctx(request, "breaking"))

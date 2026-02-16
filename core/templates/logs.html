@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Logs - Hermes Radio{% endblock %}
+{% block title %}Logs — Hermes Radio{% endblock %}
 {% block content %}
 <h2>Event Log</h2>
 
@@ -17,14 +17,15 @@
 
 <p>Showing {{ logs|length }} of {{ total }} events</p>
 
+{% if logs %}
 <div class="table-wrap">
 <table>
     <thead>
         <tr>
-            <th>Timestamp</th>
-            <th>Event</th>
-            <th>Latency</th>
-            <th>Payload</th>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Event</th>
+            <th scope="col">Latency</th>
+            <th scope="col">Payload</th>
         </tr>
     </thead>
     <tbody>
@@ -32,13 +33,16 @@
         <tr>
             <td>{{ log.timestamp }}</td>
             <td>{{ log.event_type }}</td>
-            <td>{{ log.latency_ms or '-' }}ms</td>
-            <td class="cell-truncate-lg">{{ log.payload_json or '' }}</td>
+            <td>{{ '%dms' % log.latency_ms if log.latency_ms else '—' }}</td>
+            <td class="cell-truncate-lg" onclick="this.classList.toggle('cell-expand')" style="cursor:pointer" title="Click to expand">{{ log.payload_json or '' }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 </div>
+{% else %}
+<p class="empty-state">No events found.</p>
+{% endif %}
 
 {% if offset > 0 %}
 <a href="/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset - limit }}" role="button" class="outline">Previous</a>

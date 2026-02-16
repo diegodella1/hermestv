@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Breaking - Hermes Radio{% endblock %}
+{% block title %}Breaking — Hermes Radio{% endblock %}
 {% block content %}
 <h2>Breaking News</h2>
 
@@ -16,7 +16,7 @@
             Note (optional context)
             <textarea name="note" rows="3" placeholder="What's the breaking news about?"></textarea>
         </label>
-        <button type="submit" class="contrast">Trigger Breaking</button>
+        <button type="submit" id="breaking-btn" class="contrast">Trigger Breaking</button>
     </form>
 
     <div id="result" class="mt-1"></div>
@@ -28,7 +28,11 @@
 document.getElementById('breaking-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const note = e.target.note.value;
+    const btn = document.getElementById('breaking-btn');
     const resultDiv = document.getElementById('result');
+
+    btn.disabled = true;
+    btn.ariaBusy = 'true';
     resultDiv.innerHTML = '<p>Triggering...</p>';
 
     try {
@@ -43,6 +47,9 @@ document.getElementById('breaking-form').addEventListener('submit', async (e) =>
             <p>Clip ETA: ~${data.clip_eta_seconds}s</p>`;
     } catch (err) {
         resultDiv.innerHTML = `<p class="text-danger">Error: ${err.message}</p>`;
+    } finally {
+        btn.disabled = false;
+        btn.ariaBusy = 'false';
     }
 });
 </script>

@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Edit City — Hermes Radio{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb"><a href="/admin/cities">Cities</a> &rsaquo; Edit: {{ city.label }}</nav>
+{% endblock %}
 {% block content %}
 <h2>Edit City: {{ city.label }}</h2>
 
@@ -17,11 +20,11 @@
     <div class="grid">
         <label>
             Latitude
-            <input type="number" name="lat" value="{{ city.lat }}" step="0.0001" required>
+            <input type="number" name="lat" value="{{ city.lat }}" step="0.0001" min="-90" max="90" required>
         </label>
         <label>
             Longitude
-            <input type="number" name="lon" value="{{ city.lon }}" step="0.0001" required>
+            <input type="number" name="lon" value="{{ city.lon }}" step="0.0001" min="-180" max="180" required>
         </label>
         <label>
             Timezone

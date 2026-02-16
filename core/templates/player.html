@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hermes Radio</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -32,12 +33,12 @@
                 <span id="volume-label">80</span>
             </div>
 
-            <div class="controls mt-2">
+            <div id="admin-controls" class="controls mt-2" style="display:none">
                 <button id="btn-start" class="outline secondary btn-sm" onclick="startRadio()">Start Radio</button>
                 <button id="btn-stop" class="outline secondary btn-sm" onclick="stopRadio()">Stop Radio</button>
             </div>
 
-            <p class="mt-2">
+            <p id="admin-link" class="mt-2" style="display:none">
                 <a href="/admin/" role="button" class="outline secondary btn-sm">Admin Panel</a>
             </p>
         </article>
@@ -55,18 +56,30 @@
         let hls = null;
         let isPlaying = false;
         let radioRunning = false;
+        let isAuthed = false;
 
         function setVolume(v) {
             audio.volume = v / 100;
             document.getElementById('volume-label').textContent = v;
+            localStorage.setItem('hermes-vol', v);
         }
-        setVolume(80);
+
+        // Restore saved volume
+        const savedVol = localStorage.getItem('hermes-vol');
+        if (savedVol) {
+            document.getElementById('volume').value = savedVol;
+            setVolume(savedVol);
+        } else {
+            setVolume(80);
+        }
 
         function updateUI() {
             dot.className = 'status-dot ' + (radioRunning ? 'on' : 'off');
             statusText.textContent = radioRunning ? 'On Air' : 'Off Air';
-            btnStart.disabled = radioRunning;
-            btnStop.disabled = !radioRunning;
+            if (isAuthed) {
+                btnStart.disabled = radioRunning;
+                btnStop.disabled = !radioRunning;
+            }
             btnListen.textContent = isPlaying ? 'Stop Listening' : 'Listen';
             btnListen.disabled = !radioRunning;
             if (!radioRunning && isPlaying) stopListening();
@@ -137,8 +150,18 @@
         async function checkStatus() {
             try {
                 const res = await fetch('/api/playout/status');
-                const data = await res.json();
-                radioRunning = data.running;
+                if (res.status !== 401) {
+                    const data = await res.json();
+                    radioRunning = data.running;
+                    // If we can access playout status, show admin controls
+                    if (!isAuthed) {
+                        isAuthed = true;
+                        document.getElementById('admin-controls').style.display = '';
+                        document.getElementById('admin-link').style.display = '';
+                    }
+                } else {
+                    radioRunning = false;
+                }
             } catch(e) {
                 radioRunning = false;
             }

@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Rules - Hermes Radio{% endblock %}
+{% block title %}Rules — Hermes Radio{% endblock %}
 {% block content %}
 <h2>Rules & Settings</h2>
 
+<article>
 <form method="post" action="/admin/rules">
     <div class="grid">
         <label>
@@ -78,4 +79,5 @@
 
     <button type="submit">Save</button>
 </form>
+</article>
 {% endblock %}
