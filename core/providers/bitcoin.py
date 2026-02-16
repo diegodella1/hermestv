@@ -77,6 +77,16 @@ async def _fetch_bitcoin(api_key: str) -> dict | None:
         return None
 
 
+def _num(val, as_int=False):
+    """Safely convert API value to float/int (API may return strings)."""
+    if val is None:
+        return None
+    try:
+        return int(float(val)) if as_int else float(val)
+    except (ValueError, TypeError):
+        return None
+
+
 def _extract(data: dict) -> dict:
     """Extract the 4 relevant sections from the API response."""
     result = {}
@@ -84,36 +94,36 @@ def _extract(data: dict) -> dict:
     # Price
     price = data.get("price", {})
     result["price"] = {
-        "live_price": price.get("live_price"),
-        "change_24h": price.get("change_24h"),
-        "change_pct_24h": price.get("change_percentage_24h"),
-        "market_cap": price.get("market_cap"),
-        "sats_per_dollar": price.get("sats_per_dollar"),
+        "live_price": _num(price.get("live_price")),
+        "change_24h": _num(price.get("change_24h")),
+        "change_pct_24h": _num(price.get("change_percentage_24h")),
+        "market_cap": _num(price.get("market_cap")),
+        "sats_per_dollar": _num(price.get("sats_per_dollar"), as_int=True),
     }
 
     # ETF trading
     etf = data.get("etf_trading_24h", {})
     result["etf"] = {
-        "spot_volume": etf.get("spot_volume"),
-        "total_aum": etf.get("total_aum"),
-        "btc_holdings": etf.get("btc_holdings"),
+        "spot_volume": _num(etf.get("spot_volume")),
+        "total_aum": _num(etf.get("total_aum")),
+        "btc_holdings": _num(etf.get("btc_holdings")),
     }
 
     # Corporate treasuries
     corp = data.get("corporate_treasuries", {})
     result["corporate"] = {
-        "total_btc": corp.get("total_btc"),
-        "total_value": corp.get("total_value"),
-        "public_companies": corp.get("public_companies"),
-        "private_companies": corp.get("private_companies"),
+        "total_btc": _num(corp.get("total_btc")),
+        "total_value": _num(corp.get("total_value")),
+        "public_companies": _num(corp.get("public_companies"), as_int=True),
+        "private_companies": _num(corp.get("private_companies"), as_int=True),
     }
 
     # Government treasuries
     gov = data.get("government_treasuries", {})
     result["government"] = {
-        "total_countries": gov.get("total_countries"),
-        "total_btc": gov.get("total_btc"),
-        "total_value": gov.get("total_value"),
+        "total_countries": _num(gov.get("total_countries"), as_int=True),
+        "total_btc": _num(gov.get("total_btc")),
+        "total_value": _num(gov.get("total_value")),
     }
 
     return result
