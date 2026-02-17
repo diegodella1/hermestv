@@ -1,5 +1,5 @@
 <article id="last-break-card"
-         hx-get="/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
+         hx-get="{{ base }}/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
     <header>Last Break</header>
     {% if last_break %}
     <p><strong>Host:</strong> {{ host_names.get(last_break.host_id, last_break.host_id) }}</p>

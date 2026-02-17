@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Edit City — Hermes Radio{% endblock %}
 {% block breadcrumb %}
-<nav aria-label="breadcrumb"><a href="/admin/cities">Cities</a> &rsaquo; Edit: {{ city.label }}</nav>
+<nav aria-label="breadcrumb"><a href="{{ base }}/admin/cities">Cities</a> &rsaquo; Edit: {{ city.label }}</nav>
 {% endblock %}
 {% block content %}
 <h2>Edit City: {{ city.label }}</h2>
 
-<form method="post" action="/admin/cities/{{ city.id }}">
+<form method="post" action="{{ base }}/admin/cities/{{ city.id }}">
     <div class="grid">
         <label>
             ID
@@ -50,7 +50,7 @@
     </div>
     <div class="flex-row">
         <button type="submit">Save</button>
-        <a href="/admin/cities" role="button" class="outline secondary">Cancel</a>
+        <a href="{{ base }}/admin/cities" role="button" class="outline secondary">Cancel</a>
     </div>
 </form>
 {% endblock %}

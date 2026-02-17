@@ -4,7 +4,7 @@
 <h2>Master Prompt</h2>
 
 <article>
-<form method="post" action="/admin/prompts">
+<form method="post" action="{{ base }}/admin/prompts">
     <label>
         Master prompt (applied to all hosts):
         <textarea name="master_prompt" rows="15">{{ master_prompt }}</textarea>
@@ -13,5 +13,5 @@
 </form>
 </article>
 
-<p><small>Individual host prompts are edited on the <a href="/admin/hosts">Hosts</a> page.</small></p>
+<p><small>Individual host prompts are edited on the <a href="{{ base }}/admin/hosts">Hosts</a> page.</small></p>
 {% endblock %}

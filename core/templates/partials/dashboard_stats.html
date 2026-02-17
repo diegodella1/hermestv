@@ -1,5 +1,5 @@
 <div class="stat-row" id="dashboard-stats"
-     hx-get="/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
+     hx-get="{{ base }}/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
     <article class="stat-card">
         <div class="stat-value">{{ track_count if track_count is not none else '?' }}</div>
         <div class="stat-label">Track Count</div>

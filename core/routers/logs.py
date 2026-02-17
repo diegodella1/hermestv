@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
+from core.config import BASE_PATH
 from core.database import get_db
 from core.routers.admin import require_api_key, _template_ctx
 
 router = APIRouter(tags=["logs"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+templates.env.globals["base"] = BASE_PATH
 
 
 @router.get("/admin/logs", response_class=HTMLResponse)

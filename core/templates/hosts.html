@@ -6,7 +6,7 @@
 {% for host in hosts %}
 <article>
     <header>{{ host.label }} ({{ host.id }}) — {{ host.tts_provider or 'piper' }} / {{ host.tts_voice_id or host.piper_model or 'default' }}</header>
-    <form method="post" action="/admin/hosts/{{ host.id }}">
+    <form method="post" action="{{ base }}/admin/hosts/{{ host.id }}">
         <div class="grid">
             <label>
                 Name

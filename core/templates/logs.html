@@ -3,7 +3,7 @@
 {% block content %}
 <h2>Event Log</h2>
 
-<form method="get" action="/admin/logs" class="grid">
+<form method="get" action="{{ base }}/admin/logs" class="grid">
     <label>
         Filter by type
         <input type="text" name="type" value="{{ event_type }}" placeholder="e.g. break, error, llm">
@@ -45,9 +45,9 @@
 {% endif %}
 
 {% if offset > 0 %}
-<a href="/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset - limit }}" role="button" class="outline">Previous</a>
+<a href="{{ base }}/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset - limit }}" role="button" class="outline">Previous</a>
 {% endif %}
 {% if logs|length == limit %}
-<a href="/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset + limit }}" role="button" class="outline">Next</a>
+<a href="{{ base }}/admin/logs?type={{ event_type }}&limit={{ limit }}&offset={{ offset + limit }}" role="button" class="outline">Next</a>
 {% endif %}
 {% endblock %}

@@ -36,7 +36,7 @@ document.getElementById('breaking-form').addEventListener('submit', async (e) =>
     resultDiv.innerHTML = '<p>Triggering...</p>';
 
     try {
-        const resp = await fetch('/api/breaking/trigger', {
+        const resp = await fetch('{{ base }}/api/breaking/trigger', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({reason: 'MANUAL', note})

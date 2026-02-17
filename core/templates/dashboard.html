@@ -4,7 +4,7 @@
 <h2>Dashboard</h2>
 
 <div class="stat-row" id="dashboard-stats"
-     hx-get="/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
+     hx-get="{{ base }}/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
     <article class="stat-card">
         <div class="stat-value">{{ track_count if track_count is not none else '?' }}</div>
         <div class="stat-label">Track Count</div>
@@ -25,7 +25,7 @@
 
 <div class="grid">
     <article id="last-break-card"
-             hx-get="/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
+             hx-get="{{ base }}/api/partials/last-break" hx-trigger="every 10s" hx-swap="outerHTML">
         <header>Last Break</header>
         {% if last_break %}
         <p><strong>Host:</strong> {{ host_names.get(last_break.host_id, last_break.host_id) }}</p>
@@ -44,7 +44,7 @@
     </article>
 
     <article id="feed-health-card"
-             hx-get="/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
+             hx-get="{{ base }}/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
         <header>Feed Health</header>
         {% for status, count in feed_health.items() %}
         <p>
@@ -77,13 +77,13 @@ if (Hls.isSupported()) {
         liveMaxLatencyDurationCount: 6,
         maxBufferLength: 30,
     });
-    hls.loadSource('/hls/radio.m3u8');
+    hls.loadSource('{{ base }}/hls/radio.m3u8');
     hls.attachMedia(audio);
     hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
     });
 } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-    audio.src = '/hls/radio.m3u8';
+    audio.src = '{{ base }}/hls/radio.m3u8';
 }
 </script>
 {% endblock %}

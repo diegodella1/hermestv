@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Hermes Radio{% endblock %}</title>
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="{{ base }}/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ base }}/static/style.css">
 </head>
 <body hx-headers='{"X-CSRF-Token":"{{ csrf_token }}"}'>
     <aside class="sidebar" id="sidebar">
@@ -20,27 +20,27 @@
         </div>
         <nav>
             <span class="sidebar-group">Overview</span>
-            <a href="/admin/" class="{{ 'active' if nav_active == 'dashboard' else '' }}">Dashboard</a>
+            <a href="{{ base }}/admin/" class="{{ 'active' if nav_active == 'dashboard' else '' }}">Dashboard</a>
 
             <span class="sidebar-group">Content</span>
-            <a href="/admin/sources" class="{{ 'active' if nav_active == 'sources' else '' }}">Sources</a>
-            <a href="/admin/hosts" class="{{ 'active' if nav_active == 'hosts' else '' }}">Hosts</a>
-            <a href="/admin/prompts" class="{{ 'active' if nav_active == 'prompts' else '' }}">Prompts</a>
+            <a href="{{ base }}/admin/sources" class="{{ 'active' if nav_active == 'sources' else '' }}">Sources</a>
+            <a href="{{ base }}/admin/hosts" class="{{ 'active' if nav_active == 'hosts' else '' }}">Hosts</a>
+            <a href="{{ base }}/admin/prompts" class="{{ 'active' if nav_active == 'prompts' else '' }}">Prompts</a>
 
             <span class="sidebar-group">Config</span>
-            <a href="/admin/rules" class="{{ 'active' if nav_active == 'rules' else '' }}">Rules</a>
-            <a href="/admin/cities" class="{{ 'active' if nav_active == 'cities' else '' }}">Cities</a>
-            <a href="/admin/tts" class="{{ 'active' if nav_active == 'tts' else '' }}">TTS</a>
-            <a href="/admin/bitcoin" class="{{ 'active' if nav_active == 'bitcoin' else '' }}">Bitcoin</a>
+            <a href="{{ base }}/admin/rules" class="{{ 'active' if nav_active == 'rules' else '' }}">Rules</a>
+            <a href="{{ base }}/admin/cities" class="{{ 'active' if nav_active == 'cities' else '' }}">Cities</a>
+            <a href="{{ base }}/admin/tts" class="{{ 'active' if nav_active == 'tts' else '' }}">TTS</a>
+            <a href="{{ base }}/admin/bitcoin" class="{{ 'active' if nav_active == 'bitcoin' else '' }}">Bitcoin</a>
 
             <span class="sidebar-group">Tools</span>
-            <a href="/admin/music" class="{{ 'active' if nav_active == 'music' else '' }}">Music</a>
-            <a href="/admin/breaking" class="{{ 'active' if nav_active == 'breaking' else '' }}">Breaking</a>
-            <a href="/admin/logs" class="{{ 'active' if nav_active == 'logs' else '' }}">Logs</a>
+            <a href="{{ base }}/admin/music" class="{{ 'active' if nav_active == 'music' else '' }}">Music</a>
+            <a href="{{ base }}/admin/breaking" class="{{ 'active' if nav_active == 'breaking' else '' }}">Breaking</a>
+            <a href="{{ base }}/admin/logs" class="{{ 'active' if nav_active == 'logs' else '' }}">Logs</a>
 
             <div class="sidebar-bottom">
-                <a href="/" target="_blank">Player &#8599;</a>
-                <a href="/admin/logout" data-confirm="Log out?">Logout</a>
+                <a href="{{ base }}/" target="_blank">Player &#8599;</a>
+                <a href="{{ base }}/admin/logout" data-confirm="Log out?">Logout</a>
             </div>
         </nav>
     </aside>
@@ -130,7 +130,7 @@
     /* ── Sidebar status indicator ── */
     async function updateSidebarStatus() {
         try {
-            const res = await fetch('/api/playout/status');
+            const res = await fetch('{{ base }}/api/playout/status');
             const data = await res.json();
             const dot = document.getElementById('sidebar-dot');
             const text = document.getElementById('sidebar-status-text');

@@ -32,8 +32,8 @@
             <td>{{ 'Yes' if city.enabled else 'No' }}</td>
             <td>
                 <div class="flex-row-tight">
-                    <a href="/admin/cities/{{ city.id }}" role="button" class="outline btn-sm">Edit</a>
-                    <form method="post" action="/admin/cities/{{ city.id }}/delete" class="inline-form"
+                    <a href="{{ base }}/admin/cities/{{ city.id }}" role="button" class="outline btn-sm">Edit</a>
+                    <form method="post" action="{{ base }}/admin/cities/{{ city.id }}/delete" class="inline-form"
                           data-confirm="Delete {{ city.label|e }}?">
                         <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
                     </form>
@@ -50,7 +50,7 @@
 
 <details>
     <summary>Add City</summary>
-    <form method="post" action="/admin/cities">
+    <form method="post" action="{{ base }}/admin/cities">
         <div class="grid">
             <label>
                 ID

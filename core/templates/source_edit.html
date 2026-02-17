@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Edit Source — Hermes Radio{% endblock %}
 {% block breadcrumb %}
-<nav aria-label="breadcrumb"><a href="/admin/sources">Sources</a> &rsaquo; Edit: {{ source.label }}</nav>
+<nav aria-label="breadcrumb"><a href="{{ base }}/admin/sources">Sources</a> &rsaquo; Edit: {{ source.label }}</nav>
 {% endblock %}
 {% block content %}
 <h2>Edit Source: {{ source.label }}</h2>
 
-<form method="post" action="/admin/sources/{{ source.id }}">
+<form method="post" action="{{ base }}/admin/sources/{{ source.id }}">
     <div class="grid">
         <label>
             ID
@@ -50,7 +50,7 @@
     </label>
     <div class="flex-row">
         <button type="submit">Save</button>
-        <a href="/admin/sources" role="button" class="outline secondary">Cancel</a>
+        <a href="{{ base }}/admin/sources" role="button" class="outline secondary">Cancel</a>
     </div>
 </form>
 {% endblock %}

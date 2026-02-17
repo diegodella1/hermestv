@@ -15,7 +15,7 @@ from starlette.responses import Response
 # Ensure core package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.config import HLS_DIR
+from core.config import HLS_DIR, BASE_PATH
 from core.database import init_db, close_db
 from core.routers import playout, status
 from core.services import liquidsoap_client
@@ -70,7 +70,10 @@ async def lifespan(app: FastAPI):
     print("[hermes] Shutdown complete")
 
 
-app = FastAPI(title="Hermes Radio", version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title="Hermes Radio", version="0.1.0", lifespan=lifespan,
+    root_path=BASE_PATH,
+)
 
 # CORS — needed for HLS players in browsers
 app.add_middleware(
@@ -120,6 +123,7 @@ async def serve_hls(filename: str):
 
 # Templates
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+templates.env.globals["base"] = BASE_PATH
 
 # Routers
 app.include_router(playout.router)

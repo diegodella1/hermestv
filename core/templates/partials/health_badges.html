@@ -1,5 +1,5 @@
 <article id="feed-health-card"
-         hx-get="/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
+         hx-get="{{ base }}/api/partials/feed-health" hx-trigger="every 10s" hx-swap="outerHTML">
     <header>Feed Health</header>
     {% for status, count in feed_health.items() %}
     <p>

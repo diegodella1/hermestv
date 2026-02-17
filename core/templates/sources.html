@@ -36,8 +36,8 @@
             <td>{{ 'Yes' if src.enabled else 'No' }}</td>
             <td>
                 <div class="flex-row-tight">
-                    <a href="/admin/sources/{{ src.id }}" role="button" class="outline btn-sm">Edit</a>
-                    <form method="post" action="/admin/sources/{{ src.id }}/delete" class="inline-form"
+                    <a href="{{ base }}/admin/sources/{{ src.id }}" role="button" class="outline btn-sm">Edit</a>
+                    <form method="post" action="{{ base }}/admin/sources/{{ src.id }}/delete" class="inline-form"
                           data-confirm="Delete {{ src.label|e }}?">
                         <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
                     </form>
@@ -54,7 +54,7 @@
 
 <details>
     <summary>Add Source</summary>
-    <form method="post" action="/admin/sources">
+    <form method="post" action="{{ base }}/admin/sources">
         <div class="grid">
             <label>
                 Label

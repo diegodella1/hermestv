@@ -10,13 +10,14 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import HLS_DIR, HERMES_API_KEY
+from core.config import HLS_DIR, HERMES_API_KEY, BASE_PATH
 from core.routers.admin import require_api_key
 from core.database import get_db
 from core.services import liquidsoap_client
 
 router = APIRouter(tags=["status"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+templates.env.globals["base"] = BASE_PATH
 
 _start_time = time.time()
 

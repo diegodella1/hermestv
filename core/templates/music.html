@@ -5,7 +5,7 @@
 
 <article>
     <header>Upload MP3</header>
-    <form action="/admin/music/upload" method="post" enctype="multipart/form-data">
+    <form action="{{ base }}/admin/music/upload" method="post" enctype="multipart/form-data">
         <input type="file" name="files" accept=".mp3,audio/mpeg" multiple required>
         <small>Select one or more .mp3 files (max 50 MB each)</small>
         <button type="submit">Upload</button>
@@ -22,7 +22,7 @@
                 <button type="button" class="outline btn-sm" onclick="saveOrder()">
                     Save &amp; Reload
                 </button>
-                <form action="/admin/music/reload" method="post" class="m-0">
+                <form action="{{ base }}/admin/music/reload" method="post" class="m-0">
                     <button type="submit" class="outline secondary btn-sm">Force Reload</button>
                 </form>
             </div>
@@ -48,7 +48,7 @@
                 <td class="track-name">{{ f.name }}</td>
                 <td>{{ f.size_mb }} MB</td>
                 <td>
-                    <form hx-post="/admin/music/toggle" hx-swap="none" class="m-0"
+                    <form hx-post="{{ base }}/admin/music/toggle" hx-swap="none" class="m-0"
                           hx-on::after-request="this.closest('tr').classList.toggle('disabled-track', !this.querySelector('input[type=checkbox]').checked)">
                         <input type="hidden" name="filename" value="{{ f.name }}">
                         <input type="checkbox" role="switch" name="enabled" class="m-0"
@@ -63,7 +63,7 @@
                     </div>
                 </td>
                 <td>
-                    <form action="/admin/music/delete" method="post" class="inline-form"
+                    <form action="{{ base }}/admin/music/delete" method="post" class="inline-form"
                           data-confirm="Delete {{ f.name|e }}?">
                         <input type="hidden" name="filename" value="{{ f.name }}">
                         <button type="submit" class="outline secondary btn-xs btn-danger">&#10005;</button>
@@ -158,7 +158,7 @@ async function saveOrder() {
     btn.textContent = 'Saving...';
 
     try {
-        const resp = await fetch('/admin/music/order', {
+        const resp = await fetch('{{ base }}/admin/music/order', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({order})

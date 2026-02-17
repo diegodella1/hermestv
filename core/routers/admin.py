@@ -10,11 +10,17 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Upload
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import HERMES_API_KEY, MUSIC_DIR
+from core.config import HERMES_API_KEY, MUSIC_DIR, BASE_PATH
 from core.database import get_db
 
 router = APIRouter(tags=["admin"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+templates.env.globals["base"] = BASE_PATH
+
+
+def _redirect(path: str, status_code: int = 303) -> RedirectResponse:
+    """RedirectResponse with BASE_PATH prefix."""
+    return RedirectResponse(f"{BASE_PATH}{path}", status_code=status_code)
 
 # Session tokens (in-memory, simple)
 _sessions: set[str] = set()
@@ -48,7 +54,7 @@ async def require_api_key(request: Request):
     if "text/html" in accept:
         raise HTTPException(
             status_code=307,
-            headers={"Location": "/admin/login"},
+            headers={"Location": f"{BASE_PATH}/admin/login"},
         )
 
     raise HTTPException(status_code=401, detail="Unauthorized")
@@ -90,7 +96,7 @@ async def login(request: Request):
         if len(_sessions) >= _MAX_SESSIONS:
             _sessions.clear()
         _sessions.add(session_id)
-        response = RedirectResponse("/admin/", status_code=303)
+        response = _redirect("/admin/")
         response.set_cookie("hermes_session", session_id, httponly=True, max_age=86400)
         return response
     return templates.TemplateResponse(
@@ -103,7 +109,7 @@ async def logout(request: Request):
     session = request.cookies.get("hermes_session")
     if session in _sessions:
         _sessions.discard(session)
-    response = RedirectResponse("/admin/login", status_code=303)
+    response = _redirect("/admin/login")
     response.delete_cookie("hermes_session")
     return response
 
@@ -179,9 +185,8 @@ async def update_rules(request: Request, _=Depends(require_api_key)):
     except (ValueError, TypeError):
         every_n, prepare_at = 4, 3
     if prepare_at >= every_n:
-        return RedirectResponse(
+        return _redirect(
             "/admin/rules?flash=prepare_at_track+must+be+less+than+every_n_tracks&flash_type=error",
-            status_code=303,
         )
 
     for key in ["every_n_tracks", "prepare_at_track", "cooldown_seconds",
@@ -204,7 +209,7 @@ async def update_rules(request: Request, _=Depends(require_api_key)):
     )
 
     await db.commit()
-    return RedirectResponse("/admin/rules?flash=Rules+saved&flash_type=success", status_code=303)
+    return _redirect("/admin/rules?flash=Rules+saved&flash_type=success", status_code=303)
 
 
 # --- API Settings ---
@@ -245,24 +250,21 @@ async def create_city(request: Request, _=Depends(require_api_key)):
     raw_id = form.get("id") or form.get("label", "city").lower().replace(" ", "_")
     city_id = re.sub(r'[^a-z0-9_-]', '', raw_id.lower().strip())
     if not city_id:
-        return RedirectResponse("/admin/cities?flash=Invalid+city+ID&flash_type=error", status_code=303)
+        return _redirect("/admin/cities?flash=Invalid+city+ID&flash_type=error", status_code=303)
 
     # Check for duplicate
     cursor = await db.execute("SELECT id FROM cities WHERE id = ?", (city_id,))
     if await cursor.fetchone():
         from urllib.parse import quote
         msg = f"City ID '{city_id}' already exists"
-        return RedirectResponse(
-            f"/admin/cities?flash={quote(msg)}&flash_type=error",
-            status_code=303,
-        )
+        return _redirect(f"/admin/cities?flash={quote(msg)}&flash_type=error")
 
     # Validate lat/lon
     try:
         lat = max(-90.0, min(90.0, float(form.get("lat", 0))))
         lon = max(-180.0, min(180.0, float(form.get("lon", 0))))
     except (ValueError, TypeError):
-        return RedirectResponse("/admin/cities?flash=Invalid+coordinates&flash_type=error", status_code=303)
+        return _redirect("/admin/cities?flash=Invalid+coordinates&flash_type=error", status_code=303)
 
     await db.execute(
         """INSERT INTO cities (id, label, lat, lon, tz, enabled, priority, units)
@@ -279,7 +281,7 @@ async def create_city(request: Request, _=Depends(require_api_key)):
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/cities?flash=City+added&flash_type=success", status_code=303)
+    return _redirect("/admin/cities?flash=City+added&flash_type=success", status_code=303)
 
 
 @router.get("/admin/cities/{city_id}", response_class=HTMLResponse)
@@ -288,7 +290,7 @@ async def edit_city_page(city_id: str, request: Request, _=Depends(require_api_k
     cursor = await db.execute("SELECT * FROM cities WHERE id = ?", (city_id,))
     city = await cursor.fetchone()
     if not city:
-        return RedirectResponse("/admin/cities?flash=City+not+found&flash_type=error", status_code=303)
+        return _redirect("/admin/cities?flash=City+not+found&flash_type=error", status_code=303)
     return templates.TemplateResponse("city_edit.html", _template_ctx(
         request, "cities", city=dict(city),
     ))
@@ -320,7 +322,7 @@ async def update_city(city_id: str, request: Request, _=Depends(require_api_key)
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/cities?flash=City+updated&flash_type=success", status_code=303)
+    return _redirect("/admin/cities?flash=City+updated&flash_type=success", status_code=303)
 
 
 @router.post("/admin/cities/{city_id}/delete")
@@ -328,7 +330,7 @@ async def delete_city(city_id: str, _=Depends(require_api_key)):
     db = await get_db()
     await db.execute("DELETE FROM cities WHERE id = ?", (city_id,))
     await db.commit()
-    return RedirectResponse("/admin/cities?flash=City+deleted&flash_type=success", status_code=303)
+    return _redirect("/admin/cities?flash=City+deleted&flash_type=success", status_code=303)
 
 
 # --- API Cities ---
@@ -392,17 +394,14 @@ async def create_source(request: Request, _=Depends(require_api_key)):
     raw_id = form.get("id") or form.get("label", "src").lower().replace(" ", "_")
     src_id = re.sub(r'[^a-z0-9_-]', '', raw_id.lower().strip())
     if not src_id:
-        return RedirectResponse("/admin/sources?flash=Invalid+source+ID&flash_type=error", status_code=303)
+        return _redirect("/admin/sources?flash=Invalid+source+ID&flash_type=error", status_code=303)
 
     # Check for duplicate
     cursor = await db.execute("SELECT id FROM news_sources WHERE id = ?", (src_id,))
     if await cursor.fetchone():
         from urllib.parse import quote
         msg = f"Source ID '{src_id}' already exists"
-        return RedirectResponse(
-            f"/admin/sources?flash={quote(msg)}&flash_type=error",
-            status_code=303,
-        )
+        return _redirect(f"/admin/sources?flash={quote(msg)}&flash_type=error")
 
     await db.execute(
         """INSERT INTO news_sources (id, type, label, url, enabled, weight, category, poll_interval_seconds)
@@ -416,7 +415,7 @@ async def create_source(request: Request, _=Depends(require_api_key)):
     )
     await db.execute("INSERT OR IGNORE INTO feed_health (source_id) VALUES (?)", (src_id,))
     await db.commit()
-    return RedirectResponse("/admin/sources?flash=Source+added&flash_type=success", status_code=303)
+    return _redirect("/admin/sources?flash=Source+added&flash_type=success", status_code=303)
 
 
 @router.get("/admin/sources/{src_id}", response_class=HTMLResponse)
@@ -425,7 +424,7 @@ async def edit_source_page(src_id: str, request: Request, _=Depends(require_api_
     cursor = await db.execute("SELECT * FROM news_sources WHERE id = ?", (src_id,))
     source = await cursor.fetchone()
     if not source:
-        return RedirectResponse("/admin/sources?flash=Source+not+found&flash_type=error", status_code=303)
+        return _redirect("/admin/sources?flash=Source+not+found&flash_type=error", status_code=303)
     return templates.TemplateResponse("source_edit.html", _template_ctx(
         request, "sources", source=dict(source),
     ))
@@ -451,7 +450,7 @@ async def update_source(src_id: str, request: Request, _=Depends(require_api_key
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/sources?flash=Source+updated&flash_type=success", status_code=303)
+    return _redirect("/admin/sources?flash=Source+updated&flash_type=success", status_code=303)
 
 
 @router.post("/admin/sources/{src_id}/delete")
@@ -459,7 +458,7 @@ async def delete_source(src_id: str, _=Depends(require_api_key)):
     db = await get_db()
     await db.execute("DELETE FROM news_sources WHERE id = ?", (src_id,))
     await db.commit()
-    return RedirectResponse("/admin/sources?flash=Source+deleted&flash_type=success", status_code=303)
+    return _redirect("/admin/sources?flash=Source+deleted&flash_type=success", status_code=303)
 
 
 # --- Hosts ---
@@ -491,7 +490,7 @@ async def update_host(host_id: str, request: Request, _=Depends(require_api_key)
         ),
     )
     await db.commit()
-    return RedirectResponse("/admin/hosts?flash=Host+updated&flash_type=success", status_code=303)
+    return _redirect("/admin/hosts?flash=Host+updated&flash_type=success", status_code=303)
 
 
 # --- TTS Settings ---
@@ -517,7 +516,7 @@ async def update_tts_settings(request: Request, _=Depends(require_api_key)):
                 (key, val),
             )
     await db.commit()
-    return RedirectResponse("/admin/tts?flash=TTS+settings+saved&flash_type=success", status_code=303)
+    return _redirect("/admin/tts?flash=TTS+settings+saved&flash_type=success", status_code=303)
 
 
 # --- Bitcoin Settings ---
@@ -553,7 +552,7 @@ async def update_bitcoin_settings(request: Request, _=Depends(require_api_key)):
             )
 
     await db.commit()
-    return RedirectResponse("/admin/bitcoin?flash=Bitcoin+settings+saved&flash_type=success", status_code=303)
+    return _redirect("/admin/bitcoin?flash=Bitcoin+settings+saved&flash_type=success", status_code=303)
 
 
 # --- Prompts ---
@@ -577,7 +576,7 @@ async def update_prompts(request: Request, _=Depends(require_api_key)):
         (form.get("master_prompt", ""),),
     )
     await db.commit()
-    return RedirectResponse("/admin/prompts?flash=Prompt+saved&flash_type=success", status_code=303)
+    return _redirect("/admin/prompts?flash=Prompt+saved&flash_type=success", status_code=303)
 
 
 # --- Music Library ---
@@ -680,7 +679,7 @@ async def music_upload(
     msg = f"Uploaded {uploaded} file(s)."
     if skipped:
         msg += f" Skipped: {', '.join(skipped)}"
-    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type=success", status_code=303)
+    return _redirect(f"/admin/music?flash={quote(msg)}&flash_type=success")
 
 
 @router.post("/admin/music/delete")
@@ -702,7 +701,7 @@ async def music_delete(request: Request, _=Depends(require_api_key)):
         msg, ftype = f"Deleted {safe_name}", "success"
     else:
         msg, ftype = f"File not found: {safe_name}", "error"
-    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type={ftype}", status_code=303)
+    return _redirect(f"/admin/music?flash={quote(msg)}&flash_type={ftype}")
 
 
 @router.post("/admin/music/toggle")
@@ -766,7 +765,7 @@ async def music_reload(request: Request, _=Depends(require_api_key)):
     ok = await liquidsoap_client.reload_playlist()
     from urllib.parse import quote
     msg = f"Playlist updated ({count} tracks)" if ok else f"Playlist file updated ({count} tracks) but Liquidsoap not connected"
-    return RedirectResponse(f"/admin/music?flash={quote(msg)}&flash_type=success", status_code=303)
+    return _redirect(f"/admin/music?flash={quote(msg)}&flash_type=success")
 
 
 # --- Breaking page ---

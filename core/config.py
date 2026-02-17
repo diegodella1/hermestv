@@ -23,6 +23,9 @@ LIQUIDSOAP_SOCKET = os.environ.get("LIQUIDSOAP_SOCKET", "/tmp/liquidsoap.sock")
 HERMES_HOST = os.environ.get("HERMES_HOST", "127.0.0.1")
 HERMES_PORT = int(os.environ.get("HERMES_PORT", "8100"))
 
+# Base path for reverse proxy (e.g. "/hermestv" when behind Traefik)
+BASE_PATH = os.environ.get("HERMES_BASE_PATH", "").rstrip("/")
+
 # Piper TTS
 PIPER_BIN = os.environ.get("PIPER_BIN", "/usr/local/bin/piper")
 
