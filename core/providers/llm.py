@@ -111,12 +111,18 @@ async def generate_break_script(
     elif max_words:
         system += f"\n\nKeep the break under {max_words} words."
     if bitcoin_data:
-        system += "\n\nBitcoin market data is provided — always include a brief mention of the BTC price and trend."
+        system += (
+            "\n\nBitcoin market data is provided — dedicate a full segment to it. "
+            "Cover: price + 24h change, market cap, ETF holdings and AUM, "
+            "corporate and government treasury totals. Present it naturally "
+            "as a market update segment, not just a passing mention. "
+            "NEVER give financial advice — only report the numbers."
+        )
 
     context = _format_context(weather_data, headlines, recent_tracks, bitcoin_data)
 
     # More tokens when bitcoin data is included (weather + news + btc needs room)
-    tok_limit = 280 if bitcoin_data else 200
+    tok_limit = 400 if bitcoin_data else 200
 
     try:
         t0 = time.time()

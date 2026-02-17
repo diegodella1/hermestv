@@ -112,7 +112,10 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
         else:
             s_min_w = int(settings.get("break_min_words", "15"))
             s_max_w = int(settings.get("break_max_words", "100"))
-        s_max_c = int(settings.get("break_max_chars", "600"))
+            # More room for bitcoin market segment
+            if bitcoin_data:
+                s_max_w = max(s_max_w, 180)
+        s_max_c = int(settings.get("break_max_chars", "1200" if bitcoin_data else "600"))
 
         script = await llm.generate_break_script(
             weather_data, headlines, host, master_prompt, is_breaking,
