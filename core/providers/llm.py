@@ -110,8 +110,13 @@ async def generate_break_script(
         system += f"\n\nThis is a BREAKING NEWS break. Be more urgent. {bk_max} words max."
     elif max_words:
         system += f"\n\nKeep the break under {max_words} words."
+    if bitcoin_data:
+        system += "\n\nBitcoin market data is provided — always include a brief mention of the BTC price and trend."
 
     context = _format_context(weather_data, headlines, recent_tracks, bitcoin_data)
+
+    # More tokens when bitcoin data is included (weather + news + btc needs room)
+    tok_limit = 280 if bitcoin_data else 200
 
     try:
         t0 = time.time()
@@ -121,7 +126,7 @@ async def generate_break_script(
                 {"role": "system", "content": system},
                 {"role": "user", "content": context + "\n\nWrite the break now."},
             ],
-            max_tokens=200,
+            max_tokens=tok_limit,
             temperature=0.7,
         )
         latency = int((time.time() - t0) * 1000)

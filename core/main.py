@@ -7,9 +7,10 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.responses import Response
 
 # Ensure core package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -85,10 +86,37 @@ static_dir = Path(__file__).parent / "static"
 if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# HLS stream files — served directly by FastAPI (no Caddy needed in Docker)
+# HLS stream files — custom route with proper cache headers for live streaming.
+# .m3u8 MUST NOT be cached (playlist changes every segment), .ts CAN be cached.
 hls_dir = Path(str(HLS_DIR))
 os.makedirs(str(hls_dir), exist_ok=True)
-app.mount("/hls", StaticFiles(directory=str(hls_dir)), name="hls")
+
+
+@app.get("/hls/{filename}")
+async def serve_hls(filename: str):
+    # Prevent path traversal
+    if ".." in filename or "/" in filename:
+        return Response(status_code=400)
+    filepath = hls_dir / filename
+    if not filepath.exists() or not filepath.is_file():
+        return Response(status_code=404)
+    if filename.endswith(".m3u8"):
+        return FileResponse(
+            filepath,
+            media_type="application/vnd.apple.mpegurl",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
+    elif filename.endswith(".ts"):
+        return FileResponse(
+            filepath,
+            media_type="video/MP2T",
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    return Response(status_code=404)
 
 # Templates
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))

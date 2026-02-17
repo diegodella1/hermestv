@@ -71,9 +71,17 @@
 <script>
 const audio = document.getElementById('dash-audio');
 if (Hls.isSupported()) {
-    const hls = new Hls();
+    const hls = new Hls({
+        liveDurationInfinity: true,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        maxBufferLength: 30,
+    });
     hls.loadSource('/hls/radio.m3u8');
     hls.attachMedia(audio);
+    hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal && data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+    });
 } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
     audio.src = '/hls/radio.m3u8';
 }

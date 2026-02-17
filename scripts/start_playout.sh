@@ -49,13 +49,19 @@ trap cleanup EXIT TERM INT
 START_NUM=$(( $(date +%s) % 100000 ))
 
 # Start FFmpeg reading from FIFO (background)
+# - thread_queue_size: larger input buffer to absorb Liquidsoap track-transition gaps
+# - hls_time 6: longer segments = more stable playback (tradeoff: 6s extra latency)
+# - hls_list_size 20: ~120s window so slow clients don't get 404 on deleted segments
+# - independent_segments: tells player each segment decodes standalone → faster seek/start
+# - removed discont_start (caused unnecessary rebuffering on playlist load)
 ffmpeg -hide_banner -loglevel warning \
+  -thread_queue_size 1024 \
   -f wav -i "$FIFO" \
   -c:a aac -b:a 128k -ar 44100 -ac 2 \
   -f hls \
-  -hls_time 4 \
-  -hls_list_size 10 \
-  -hls_flags delete_segments+discont_start+program_date_time \
+  -hls_time 6 \
+  -hls_list_size 20 \
+  -hls_flags delete_segments+program_date_time+independent_segments \
   -hls_segment_type mpegts \
   -start_number "$START_NUM" \
   -hls_segment_filename "$HLS_DIR/radio_%05d.ts" \
