@@ -1,0 +1,42 @@
+{
+  "title": "Lip-Sync Test",
+  "characters": ["alex", "maya"],
+  "scenes": [
+    {
+      "scene_id": "scene_1",
+      "background": "studio",
+      "lines": [
+        {
+          "character": "alex",
+          "text": "Good evening, I'm Alex with breaking news tonight.",
+          "audio_path": "test_data/audio/line_1.mp3",
+          "duration_ms": 3396
+        },
+        {
+          "character": "maya",
+          "text": "Thanks Alex. Bitcoin has crossed two hundred thousand.",
+          "audio_path": "test_data/audio/line_2.mp3",
+          "duration_ms": 3396
+        },
+        {
+          "character": "alex",
+          "text": "Analysts say this was driven by institutional buying.",
+          "audio_path": "test_data/audio/line_3.mp3",
+          "duration_ms": 3396
+        },
+        {
+          "character": "maya",
+          "text": "Ethereum and Solana are also seeing big gains today.",
+          "audio_path": "test_data/audio/line_4.mp3",
+          "duration_ms": 3396
+        },
+        {
+          "character": "alex",
+          "text": "We'll keep following this story. Stay with us.",
+          "audio_path": "test_data/audio/line_5.mp3",
+          "duration_ms": 3396
+        }
+      ]
+    }
+  ]
+}

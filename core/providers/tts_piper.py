@@ -6,6 +6,18 @@ import time
 
 from core.config import PIPER_BIN, MODELS_DIR, BREAKS_DIR
 
+# Piper ships bundled .so libs — ensure LD_LIBRARY_PATH includes their dir.
+_PIPER_LIB_DIR = os.path.dirname(os.path.realpath(PIPER_BIN))
+
+
+def _piper_env() -> dict:
+    """Build env dict with LD_LIBRARY_PATH pointing at Piper's libs."""
+    env = os.environ.copy()
+    ld = env.get("LD_LIBRARY_PATH", "")
+    if _PIPER_LIB_DIR not in ld:
+        env["LD_LIBRARY_PATH"] = f"{_PIPER_LIB_DIR}:{ld}" if ld else _PIPER_LIB_DIR
+    return env
+
 
 async def synthesize(
     text: str,
@@ -43,6 +55,7 @@ async def synthesize(
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=_piper_env(),
         )
         _, stderr = await asyncio.wait_for(
             proc.communicate(input=text.encode("utf-8")),

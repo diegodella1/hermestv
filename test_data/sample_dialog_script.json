@@ -1,0 +1,57 @@
+{
+  "title": "Bitcoin Breaks $200K — Full Discussion",
+  "characters": ["alex", "maya"],
+  "scenes": [
+    {
+      "scene_id": "scene_1",
+      "background": "studio",
+      "lines": [
+        {
+          "character": "alex",
+          "text": "Good evening everyone, I'm Alex Nakamoto and welcome to Hermes TV. We've got massive news tonight.",
+          "duration_ms": 5500,
+          "emotion": "excited",
+          "camera_hint": "wide"
+        },
+        {
+          "character": "maya",
+          "text": "And I'm Maya Torres. That's right Alex — Bitcoin has officially crossed two hundred thousand dollars for the first time in history.",
+          "duration_ms": 6500,
+          "emotion": "excited"
+        },
+        {
+          "character": "alex",
+          "text": "Two hundred K! The bull case just keeps getting stronger. On-chain metrics are absolutely insane right now.",
+          "duration_ms": 5000,
+          "emotion": "excited"
+        },
+        {
+          "character": "maya",
+          "text": "Hold on. Let's look at the data before we get carried away. The surge was driven by a twelve percent jump in twenty-four hours, mostly institutional buying.",
+          "duration_ms": 7000,
+          "emotion": "neutral"
+        },
+        {
+          "character": "alex",
+          "text": "Exactly! The ETF inflows are record-breaking. BlackRock alone moved billions this week.",
+          "duration_ms": 4500,
+          "emotion": "excited",
+          "camera_hint": "twoshot"
+        },
+        {
+          "character": "maya",
+          "text": "Meanwhile, Ethereum is up eight percent and Solana jumped fifteen. The whole market is moving.",
+          "duration_ms": 5500,
+          "emotion": "neutral"
+        },
+        {
+          "character": "alex",
+          "text": "And this is just the beginning. We'll be watching this very closely. Stay with Hermes TV.",
+          "duration_ms": 4000,
+          "emotion": "excited",
+          "camera_hint": "wide"
+        }
+      ]
+    }
+  ]
+}

@@ -165,8 +165,26 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 await _log_break(break_id, t0, deg_level, error=reason)
                 return
 
-        # 6. TTS
-        audio_path = await tts_router.synthesize(script, host, break_id)
+        # 6. TTS + optional dialog mode
+        dialog_mode = settings.get("dialog_mode", "monologue")
+        audio_path = None
+        dialog_script = None
+
+        if dialog_mode == "dialog" and not is_breaking:
+            # Dialog mode: generate multi-character script, synthesize per-line, combine
+            dialog_chars = settings.get("dialog_characters", "alex,maya").split(",")
+            dialog_script = await llm.generate_dialog_script(
+                characters=[c.strip() for c in dialog_chars],
+                topic=script,  # use the monologue script as topic context
+                bitcoin_data=bitcoin_data,
+                headlines=headlines,
+            )
+            if dialog_script:
+                audio_path = await _synthesize_dialog(dialog_script, break_id)
+
+        # Fallback to monologue TTS if dialog failed or not in dialog mode
+        if not audio_path:
+            audio_path = await tts_router.synthesize(script, host, break_id)
 
         if not audio_path:
             print("[builder] TTS failed, trying sting fallback")
@@ -183,6 +201,14 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 await _log_break(break_id, t0, 4, error="tts_failed")
                 return
 
+        # 6b. Video render (optional, non-blocking)
+        video_path = None
+        if settings.get("video_enabled") == "true":
+            if dialog_script:
+                video_path = await _render_dialog_video(dialog_script, break_id)
+            else:
+                video_path = await _render_video(script, audio_path, host["id"], break_id)
+
         # 7. Mark ready + inject
         elapsed_ms = int((time.time() - t0) * 1000)
         await break_queue.mark_ready(
@@ -197,6 +223,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 "headline_ids": [h["id"] for h in headlines],
                 "weather_cities": len(weather_data),
                 "bitcoin": bitcoin_data is not None,
+                "video_path": video_path,
             },
         )
 
@@ -216,6 +243,101 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
         print(f"[builder] Pipeline error: {e}")
         await break_queue.mark_failed(break_id, str(e))
         await _log_break(break_id, t0, 4, error=str(e))
+
+
+async def _render_video(
+    script_text: str, audio_path: str, host_id: str, break_id: str
+) -> str | None:
+    """Render video for a break in a thread (FFmpeg is blocking)."""
+    try:
+        import asyncio
+        from functools import partial
+        from visual.bridge import render_break_video
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                render_break_video,
+                script_text=script_text,
+                audio_path=audio_path,
+                host_id=host_id,
+                break_id=break_id,
+            ),
+        )
+        return result
+    except Exception as e:
+        print(f"[builder] Video render failed (non-fatal): {e}")
+        return None
+
+
+async def _synthesize_dialog(dialog_script: dict, break_id: str) -> str | None:
+    """Synthesize TTS for each dialog line and combine into one MP3."""
+    try:
+        import asyncio
+        import tempfile
+        from functools import partial
+        from visual.bridge import synthesize_dialog
+        from visual.ffmpeg_utils import run_ffmpeg
+
+        loop = asyncio.get_running_loop()
+
+        # Create temp dir for per-line audio
+        audio_dir = tempfile.mkdtemp(prefix=f"hermes_dialog_{break_id}_")
+
+        # Synthesize each line (blocking Piper calls, run in executor)
+        updated = await loop.run_in_executor(
+            None, partial(synthesize_dialog, dialog_script, audio_dir)
+        )
+
+        # Combine all line audio files into one MP3
+        from pathlib import Path
+        audio_files = []
+        for scene in updated.get("scenes", []):
+            for line in scene.get("lines", []):
+                if line.get("audio_path"):
+                    audio_files.append(line["audio_path"])
+
+        if not audio_files:
+            return None
+
+        combined_path = str(Path(audio_dir) / f"{break_id}_combined.mp3")
+        concat_file = Path(audio_dir) / "concat.txt"
+        concat_file.write_text("\n".join(f"file '{f}'" for f in audio_files))
+
+        run_ffmpeg([
+            "-f", "concat", "-safe", "0", "-i", str(concat_file),
+            "-c", "copy",
+            str(combined_path),
+        ], desc=f"combine dialog audio ({len(audio_files)} files)")
+
+        return combined_path
+    except Exception as e:
+        print(f"[builder] Dialog TTS failed (non-fatal): {e}")
+        return None
+
+
+async def _render_dialog_video(dialog_script: dict, break_id: str) -> str | None:
+    """Render video for a dialog script in a thread."""
+    try:
+        import asyncio
+        from functools import partial
+        from visual.bridge import render_dialog_video
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            None,
+            partial(
+                render_dialog_video,
+                dialog_script=dialog_script,
+                break_id=break_id,
+                output_dir="output/",
+            ),
+        )
+        return result
+    except Exception as e:
+        print(f"[builder] Dialog video render failed (non-fatal): {e}")
+        return None
 
 
 async def _log_break(break_id: str, t0: float, deg_level: int, error: str = ""):

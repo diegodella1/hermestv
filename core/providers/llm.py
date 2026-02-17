@@ -157,6 +157,86 @@ async def generate_break_script(
         return None
 
 
+async def generate_dialog_script(
+    characters: list[str],
+    topic: str,
+    bitcoin_data: dict | None = None,
+    headlines: list[dict] | None = None,
+    duration_minutes: float = 1.0,
+) -> dict | None:
+    """Generate a multi-character dialog script using GPT-4o-mini.
+
+    Returns a dict in the Script JSON format (title, characters, scenes with lines
+    that include emotion and camera_hint), or None on failure.
+    """
+    client = _get_client()
+    if not client:
+        return None
+
+    from core.character_prompts import CHARACTER_PROMPTS, ORCHESTRATOR_PROMPT
+
+    # Build system prompt: orchestrator + character prompts
+    char_prompts = "\n\n".join(
+        CHARACTER_PROMPTS[c] for c in characters if c in CHARACTER_PROMPTS
+    )
+    # Rough estimate: ~10 lines per minute of dialog
+    line_limit = max(6, int(duration_minutes * 10))
+    system = (
+        f"{ORCHESTRATOR_PROMPT}\n\n"
+        f"DURATION_LIMIT: {line_limit} lines\n\n"
+        f"CHARACTERS IN THIS EPISODE:\n{char_prompts}"
+    )
+
+    # Build context
+    context_parts = [f"TOPIC: {topic}"]
+    if bitcoin_data:
+        context_parts.append(
+            _format_context([], [], bitcoin_data=bitcoin_data)
+        )
+    if headlines:
+        context_parts.append(
+            _format_context([], headlines)
+        )
+    context = "\n\n".join(context_parts)
+
+    try:
+        t0 = time.time()
+        resp = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": context + "\n\nWrite the dialog script now."},
+            ],
+            max_tokens=1500,
+            temperature=0.8,
+            response_format={"type": "json_object"},
+        )
+        latency = int((time.time() - t0) * 1000)
+
+        content = resp.choices[0].message.content.strip()
+        script = json.loads(content)
+
+        # Ensure characters list matches request
+        script["characters"] = characters
+
+        # Log
+        db = await get_db()
+        await db.execute(
+            "INSERT INTO events_log (event_type, payload_json, latency_ms) VALUES (?, ?, ?)",
+            (
+                "llm_dialog",
+                json.dumps({"characters": characters, "topic": topic[:100]}),
+                latency,
+            ),
+        )
+        await db.commit()
+
+        return script
+    except Exception as e:
+        print(f"[llm] Dialog generation error: {e}")
+        return None
+
+
 def _format_context(weather_data: list[dict], headlines: list[dict], recent_tracks: list[dict] | None = None, bitcoin_data: dict | None = None) -> str:
     parts = []
 

@@ -1,0 +1,37 @@
+{
+  "title": "Bitcoin Surpasses $200,000",
+  "characters": ["alex", "maya"],
+  "scenes": [
+    {
+      "scene_id": "scene_1",
+      "background": "studio",
+      "lines": [
+        {
+          "character": "alex",
+          "text": "Good evening, I'm Alex. Breaking news tonight — Bitcoin has officially crossed the two hundred thousand dollar mark for the first time.",
+          "duration_ms": 6500
+        },
+        {
+          "character": "maya",
+          "text": "That's right Alex. The cryptocurrency surged twelve percent in the last twenty-four hours, driven by institutional buying and a weaker dollar.",
+          "duration_ms": 7000
+        },
+        {
+          "character": "alex",
+          "text": "Analysts say this milestone was inevitable after the latest ETF approvals, but the speed of the rally has caught many off guard.",
+          "duration_ms": 6000
+        },
+        {
+          "character": "maya",
+          "text": "Meanwhile, other cryptocurrencies are also seeing significant gains. Ethereum is up eight percent, and Solana has jumped fifteen percent.",
+          "duration_ms": 6500
+        },
+        {
+          "character": "alex",
+          "text": "We'll continue to follow this story as it develops. Stay with us.",
+          "duration_ms": 3500
+        }
+      ]
+    }
+  ]
+}

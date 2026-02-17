@@ -1,0 +1,28 @@
+{
+  "label": "Rolo",
+  "position_x": 0.5,
+  "position_y": 0.85,
+  "scale": 0.9,
+  "positions": {
+    "wide": [
+      0.5,
+      0.85,
+      0.6
+    ],
+    "closeup_left": [
+      0.5,
+      0.85,
+      1.0
+    ],
+    "closeup_right": [
+      0.5,
+      0.85,
+      1.0
+    ],
+    "twoshot": [
+      0.5,
+      0.85,
+      0.8
+    ]
+  }
+}

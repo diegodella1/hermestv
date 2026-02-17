@@ -31,6 +31,7 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('bitcoin_enabled', 'false'),
     ('bitcoin_api_key', ''),
     ('bitcoin_cache_ttl', '300'),
+    ('video_enabled', 'false'),
     ('master_prompt', 'You are a radio host for Roxom Radio, a modern indie-style internet radio station.
 
 RULES — you must always follow these:
