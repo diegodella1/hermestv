@@ -77,53 +77,37 @@ async def _fetch_bitcoin(api_key: str) -> dict | None:
         return None
 
 
-def _num(val, as_int=False):
-    """Safely convert API value to float/int (API may return strings)."""
-    if val is None:
-        return None
-    try:
-        return int(float(val)) if as_int else float(val)
-    except (ValueError, TypeError):
-        return None
-
-
 def _extract(data: dict) -> dict:
-    """Extract the 4 relevant sections from the API response."""
-    result = {}
+    """Extract relevant sections from the API response.
 
-    # Price
+    The API returns pre-formatted strings (e.g. "$67,952.74", "$1.36T")
+    so we pass them through as-is — they're already human-readable.
+    """
     price = data.get("price", {})
-    result["price"] = {
-        "live_price": _num(price.get("live_price")),
-        "change_24h": _num(price.get("change_24h")),
-        "change_pct_24h": _num(price.get("change_percentage_24h")),
-        "market_cap": _num(price.get("market_cap")),
-        "sats_per_dollar": _num(price.get("sats_per_dollar"), as_int=True),
-    }
-
-    # ETF trading
     etf = data.get("etf_trading_24h", {})
-    result["etf"] = {
-        "spot_volume": _num(etf.get("spot_volume")),
-        "total_aum": _num(etf.get("total_aum")),
-        "btc_holdings": _num(etf.get("btc_holdings")),
-    }
-
-    # Corporate treasuries
     corp = data.get("corporate_treasuries", {})
-    result["corporate"] = {
-        "total_btc": _num(corp.get("total_btc")),
-        "total_value": _num(corp.get("total_value")),
-        "public_companies": _num(corp.get("public_companies"), as_int=True),
-        "private_companies": _num(corp.get("private_companies"), as_int=True),
-    }
-
-    # Government treasuries
     gov = data.get("government_treasuries", {})
-    result["government"] = {
-        "total_countries": _num(gov.get("total_countries"), as_int=True),
-        "total_btc": _num(gov.get("total_btc")),
-        "total_value": _num(gov.get("total_value")),
-    }
 
-    return result
+    return {
+        "price": {
+            "live_price": price.get("live_price", ""),
+            "change_24h": price.get("live_price_1", ""),  # e.g. "-1738.27 [-2.49%]"
+            "market_cap": price.get("market_cap", ""),
+            "sats_per_dollar": price.get("sats_per_dollar", ""),
+        },
+        "etf": {
+            "spot_volume": etf.get("spot_trading_volume", ""),
+            "total_aum": etf.get("total_spot_aum", ""),
+            "btc_holdings": etf.get("total_btc_holdings", ""),
+        },
+        "corporate": {
+            "total": corp.get("total", ""),
+            "public_companies": corp.get("public_companies", ""),
+            "private_companies": corp.get("private_companies", ""),
+        },
+        "government": {
+            "countries": gov.get("governments", ""),
+            "btc_held": gov.get("btc_held_in_treasuries", ""),
+            "value": gov.get("treasury_value_usd", ""),
+        },
+    }

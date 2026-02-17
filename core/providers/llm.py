@@ -186,52 +186,33 @@ def _format_context(weather_data: list[dict], headlines: list[dict], recent_trac
         suffix = " (last check)" if stale else ""
         parts.append("BITCOIN MARKET DATA (report numbers only — NEVER say buy/sell/invest):")
         p = bitcoin_data.get("price", {})
-        if p.get("live_price") is not None:
-            change = p.get("change_24h")
-            pct = p.get("change_pct_24h")
-            change_str = ""
-            if change is not None and pct is not None:
-                sign = "+" if float(change) >= 0 else ""
-                change_str = f" ({sign}{change} [{sign}{pct}%])"
-            parts.append(f"- Price: ${p['live_price']:,.2f}{change_str}{suffix}")
-        if p.get("market_cap") is not None:
-            cap = p["market_cap"]
-            cap_str = f"${cap/1e12:.2f}T" if cap >= 1e12 else f"${cap/1e9:.1f}B"
-            sats = p.get("sats_per_dollar", "?")
-            parts.append(f"- Market cap: {cap_str}, Sats/dollar: {sats:,}" if isinstance(sats, (int, float)) else f"- Market cap: {cap_str}")
+        if p.get("live_price"):
+            parts.append(f"- Price: {p['live_price']} {p.get('change_24h', '')}{suffix}")
+        if p.get("market_cap"):
+            line = f"- Market cap: {p['market_cap']}"
+            if p.get("sats_per_dollar"):
+                line += f", Sats/dollar: {p['sats_per_dollar']}"
+            parts.append(line)
         if not stale:
             etf = bitcoin_data.get("etf", {})
-            if etf.get("spot_volume") is not None:
-                vol = etf["spot_volume"]
-                vol_str = f"${vol/1e9:.2f}B" if vol >= 1e9 else f"${vol/1e6:.0f}M"
-                aum = etf.get("total_aum")
-                aum_str = f"${aum/1e9:.2f}B" if aum and aum >= 1e9 else ""
-                held = etf.get("btc_holdings")
-                held_str = f"{held/1e6:.2f}M" if held and held >= 1e6 else (f"{held:,.0f}" if held else "")
-                line = f"- ETF spot volume (24h): {vol_str}"
-                if aum_str:
-                    line += f", AUM: {aum_str}"
-                if held_str:
-                    line += f", BTC held: {held_str}"
+            if etf.get("spot_volume"):
+                line = f"- ETF spot volume (24h): {etf['spot_volume']}"
+                if etf.get("total_aum"):
+                    line += f", AUM: {etf['total_aum']}"
+                if etf.get("btc_holdings"):
+                    line += f", BTC held: {etf['btc_holdings']}"
                 parts.append(line)
             corp = bitcoin_data.get("corporate", {})
-            if corp.get("total_btc") is not None:
-                val = corp.get("total_value")
-                val_str = f"${val/1e9:.2f}B" if val and val >= 1e9 else ""
-                pub = corp.get("public_companies", "?")
-                priv = corp.get("private_companies", "?")
-                line = f"- Corporate treasuries: {corp['total_btc']:,.2f} BTC"
-                if val_str:
-                    line += f" ({val_str}, {pub} public + {priv} private cos)"
+            if corp.get("total"):
+                line = f"- Corporate treasuries: {corp['total']}"
+                if corp.get("public_companies"):
+                    line += f" ({corp['public_companies']} public + {corp.get('private_companies', '?')} private cos)"
                 parts.append(line)
             gov = bitcoin_data.get("government", {})
-            if gov.get("total_btc") is not None:
-                gov_val = gov.get("total_value")
-                gov_val_str = f"${gov_val/1e9:.2f}B" if gov_val and gov_val >= 1e9 else ""
-                countries = gov.get("total_countries", "?")
-                line = f"- Government treasuries: {countries} govs holding {gov['total_btc']:,.3f} BTC"
-                if gov_val_str:
-                    line += f" ({gov_val_str})"
+            if gov.get("btc_held"):
+                line = f"- Government treasuries: {gov.get('countries', '?')} govs holding {gov['btc_held']}"
+                if gov.get("value"):
+                    line += f" ({gov['value']})"
                 parts.append(line)
         parts.append("")
 
