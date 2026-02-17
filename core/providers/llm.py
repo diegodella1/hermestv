@@ -228,7 +228,16 @@ def _format_context(weather_data: list[dict], headlines: list[dict], recent_trac
             score = h.get("score", "?")
             source = h.get("source_id", h.get("source", ""))
             title = h.get("title", "")
-            parts.append(f"{i}. [Score: {score}] {title} ({source})")
+            tag = " [PREVIOUSLY REPORTED]" if h.get("previously_reported") else ""
+            parts.append(f"{i}. [Score: {score}]{tag} {title} ({source})")
+        has_repeated = any(h.get("previously_reported") for h in headlines)
+        if has_repeated:
+            parts.append(
+                "(Headlines marked PREVIOUSLY REPORTED were already covered in earlier breaks. "
+                "Do NOT announce them as new. For one-time events like deaths or results, "
+                "reference them as established fact: 'As we reported...', 'We remember that...'. "
+                "For developing stories, give updates: 'More on the story...', 'The latest on...')"
+            )
         parts.append("")
 
     if not parts:

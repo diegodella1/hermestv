@@ -95,12 +95,17 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                         )
 
             recently_used_ids = await break_queue.get_recent_headline_ids(lookback=2)
+            # Wider lookback for "previously reported" tagging
+            all_used_ids = set(await break_queue.get_recent_headline_ids(lookback=10))
             dedupe_window = int(settings.get("news_dedupe_window_minutes", "60"))
             headlines = await news.get_top_headlines(
                 limit=3,
                 dedupe_window_minutes=dedupe_window,
                 exclude_ids=recently_used_ids or None,
             )
+            # Tag headlines the audience already heard
+            for h in headlines:
+                h["previously_reported"] = h["id"] in all_used_ids
         except Exception as e:
             print(f"[builder] News pipeline error: {e}")
 
