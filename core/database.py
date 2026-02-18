@@ -1,4 +1,4 @@
-"""Hermes Radio — aiosqlite database wrapper."""
+"""Hermes TV — aiosqlite database wrapper."""
 
 import aiosqlite
 from core.config import DB_PATH

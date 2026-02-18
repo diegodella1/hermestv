@@ -31,7 +31,7 @@ async def mark_ready(
     duration_ms: int | None = None,
     meta: dict | None = None,
 ):
-    """Mark break as ready for playout."""
+    """Mark break as ready."""
     db = await get_db()
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(

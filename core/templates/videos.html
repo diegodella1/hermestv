@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Videos — Hermes Radio{% endblock %}
+{% block title %}Videos — Hermes TV{% endblock %}
 {% block content %}
 <div class="flex-between">
     <h2>Videos</h2>
-    <a href="{{ base }}/tv" target="_blank" role="button" class="outline btn-sm">TV Player &#8599;</a>
+    <a href="{{ base }}/" target="_blank" role="button" class="outline btn-sm">TV Player &#8599;</a>
 </div>
 
 <div id="video-list"
@@ -71,7 +71,7 @@
 </table>
 </div>
 {% else %}
-<p class="empty-state">No video breaks yet. Enable <code>video_enabled</code> in Rules to start generating videos.</p>
+<p class="empty-state">No video breaks yet. The scheduler will generate them automatically.</p>
 {% endif %}
 
 </div>

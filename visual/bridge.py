@@ -1,4 +1,4 @@
-"""Bridge — converts Hermes radio breaks into visual renders.
+"""Bridge — converts Hermes TV breaks into visual renders.
 
 Supports two modes:
 - Monologue: single host + single audio → MP4 (legacy, used by break_builder)
@@ -47,7 +47,7 @@ def render_break_video(
     output_dir: str | None = None,
     assets_dir: str | None = None,
 ) -> str | None:
-    """Render a monologue radio break as an MP4 video.
+    """Render a monologue break as an MP4 video.
 
     Args:
         script_text: The monologue script text

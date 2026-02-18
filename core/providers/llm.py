@@ -20,7 +20,7 @@ def _get_client() -> AsyncOpenAI | None:
     return _client
 
 
-SCORER_SYSTEM = """You are a news relevance scorer for a general interest radio station.
+SCORER_SYSTEM = """You are a news relevance scorer for a general interest news channel.
 
 Score each headline from 1-10 based on:
 - Global impact (how many people does this affect?)
@@ -99,7 +99,7 @@ async def generate_break_script(
     max_words: int | None = None,
     bitcoin_data: dict | None = None,
 ) -> str | None:
-    """Generate a radio break script using GPT-4o-mini."""
+    """Generate a break script using GPT-4o-mini."""
     client = _get_client()
     if not client:
         return None

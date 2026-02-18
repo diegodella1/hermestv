@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Initialize Hermes Radio SQLite database from schema.sql."""
+"""Initialize Hermes TV SQLite database from schema.sql."""
 
 import os
 import sqlite3

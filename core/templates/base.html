@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Hermes Radio{% endblock %}</title>
+    <title>{% block title %}Hermes TV{% endblock %}</title>
     <link rel="icon" href="{{ base }}/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -12,10 +12,10 @@
 <body hx-headers='{"X-CSRF-Token":"{{ csrf_token }}"}'>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <strong>Hermes Radio</strong>
+            <strong>Hermes TV</strong>
             <span class="sidebar-status" id="sidebar-status">
                 <span class="status-dot off" id="sidebar-dot"></span>
-                <span id="sidebar-status-text">Off Air</span>
+                <span id="sidebar-status-text">Idle</span>
             </span>
         </div>
         <nav>
@@ -35,7 +35,6 @@
 
             <span class="sidebar-group">Tools</span>
             <a href="{{ base }}/admin/videos" class="{{ 'active' if nav_active == 'videos' else '' }}">Videos</a>
-            <a href="{{ base }}/admin/music" class="{{ 'active' if nav_active == 'music' else '' }}">Music</a>
             <a href="{{ base }}/admin/breaking" class="{{ 'active' if nav_active == 'breaking' else '' }}">Breaking</a>
             <a href="{{ base }}/admin/logs" class="{{ 'active' if nav_active == 'logs' else '' }}">Logs</a>
 
@@ -43,8 +42,7 @@
             <a href="{{ base }}/admin/visual-guide" class="{{ 'active' if nav_active == 'visual-guide' else '' }}">Visual Guide</a>
 
             <div class="sidebar-bottom">
-                <a href="{{ base }}/" target="_blank">Player &#8599;</a>
-                <a href="{{ base }}/tv" target="_blank">TV &#8599;</a>
+                <a href="{{ base }}/" target="_blank">TV Player &#8599;</a>
                 <a href="{{ base }}/admin/logout" data-confirm="Log out?">Logout</a>
             </div>
         </nav>
@@ -65,12 +63,12 @@
         </main>
 
         <footer class="container">
-            <small class="text-muted">Hermes Radio</small>
+            <small class="text-muted">Hermes TV</small>
         </footer>
     </div>
 
     <script>
-    /* ── Toast system ── */
+    /* -- Toast system -- */
     function showToast(text, type, duration) {
         const container = document.getElementById('toast-container');
         const el = document.createElement('div');
@@ -115,7 +113,7 @@
         }
     })();
 
-    /* ── Confirm delegation (XSS-safe) ── */
+    /* -- Confirm delegation (XSS-safe) -- */
     document.addEventListener('submit', e => {
         const msg = e.target.dataset.confirm;
         if (msg && !confirm(msg)) { e.preventDefault(); return; }
@@ -125,22 +123,22 @@
         if (a && !confirm(a.dataset.confirm)) e.preventDefault();
     });
 
-    /* ── Save button loading state ── */
+    /* -- Save button loading state -- */
     document.addEventListener('submit', e => {
         if (e.defaultPrevented) return;
         const btn = e.target.querySelector('button[type="submit"]');
         if (btn) { btn.ariaBusy = 'true'; btn.disabled = true; }
     });
 
-    /* ── Sidebar status indicator ── */
+    /* -- Sidebar status indicator -- */
     async function updateSidebarStatus() {
         try {
-            const res = await fetch('{{ base }}/api/playout/status');
+            const res = await fetch('{{ base }}/api/status/current');
             const data = await res.json();
             const dot = document.getElementById('sidebar-dot');
             const text = document.getElementById('sidebar-status-text');
-            dot.className = 'status-dot ' + (data.running ? 'on' : 'off');
-            text.textContent = data.running ? 'On Air' : 'Off Air';
+            dot.className = 'status-dot ' + (data.scheduler_running ? 'on' : 'off');
+            text.textContent = data.scheduler_running ? 'Scheduler Active' : 'Idle';
         } catch(e) {}
     }
     updateSidebarStatus();

@@ -12,11 +12,10 @@ from core.services import (
     content_filter,
     host_rotation,
     degradation,
-    liquidsoap_client,
 )
 
 
-async def prepare_break(is_breaking: bool = False, breaking_note: str = "", recent_tracks: list[dict] | None = None):
+async def prepare_break(is_breaking: bool = False, breaking_note: str = ""):
     """
     Full break generation pipeline:
     1. Fetch weather
@@ -24,9 +23,9 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
     3. Select host
     4. Generate script (LLM)
     5. Validate (content filter)
-    6. TTS → MP3
-    7. Push to queue
-    8. Inject into Liquidsoap
+    6. TTS
+    7. Video render + HLS
+    8. Mark ready
     """
     t0 = time.time()
     now = datetime.now(timezone.utc)
@@ -111,7 +110,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             print(f"[builder] News pipeline error: {e}")
 
         # 3. Generate script
-        master_prompt = settings.get("master_prompt", "You are a radio host.")
+        master_prompt = settings.get("master_prompt", "You are a TV news anchor.")
         if is_breaking:
             s_min_w = int(settings.get("breaking_min_words", "10"))
             s_max_w = int(settings.get("breaking_max_words", "50"))
@@ -125,7 +124,6 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
 
         script = await llm.generate_break_script(
             weather_data, headlines, host, master_prompt, is_breaking,
-            recent_tracks=recent_tracks,
             max_words=s_max_w,
             bitcoin_data=bitcoin_data,
         )
@@ -135,19 +133,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             print("[builder] LLM failed, trying fallback")
             script, deg_level = await degradation.get_fallback_script(weather_data)
 
-            if script is None and deg_level == 3:
-                # Sting-only fallback
-                sting_path = degradation.get_sting_path("station_id")
-                if sting_path:
-                    await break_queue.mark_ready(
-                        break_id, "", sting_path, degradation_level=3
-                    )
-                    await liquidsoap_client.push_break(sting_path)
-                    await _log_break(break_id, t0, 3)
-                    return
-
             if script is None:
-                # Level 4: skip entirely
                 await break_queue.mark_failed(break_id, "all fallbacks exhausted")
                 await _log_break(break_id, t0, 4, error="all_fallbacks_failed")
                 return
@@ -159,7 +145,6 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
         )
         if not valid:
             print(f"[builder] Content filter rejected: {reason}")
-            # Try fallback
             script, deg_level = await degradation.get_fallback_script(weather_data)
             if script is None:
                 await break_queue.mark_failed(break_id, f"filter: {reason}")
@@ -188,33 +173,24 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             audio_path = await tts_router.synthesize(script, host, break_id)
 
         if not audio_path:
-            print("[builder] TTS failed, trying sting fallback")
-            sting_path = degradation.get_sting_path("station_id")
-            if sting_path:
-                await break_queue.mark_ready(
-                    break_id, script, sting_path, degradation_level=3
-                )
-                await liquidsoap_client.push_break(sting_path)
-                await _log_break(break_id, t0, 3)
-                return
-            else:
-                await break_queue.mark_failed(break_id, "TTS failed, no sting")
-                await _log_break(break_id, t0, 4, error="tts_failed")
-                return
+            print("[builder] TTS failed")
+            await break_queue.mark_failed(break_id, "TTS failed")
+            await _log_break(break_id, t0, 4, error="tts_failed")
+            return
 
-        # 6b. Video render (optional, non-blocking)
+        # 7. Video render (always enabled for TV)
         video_path = None
         hls_video_path = None
-        if settings.get("video_enabled") == "true":
-            if dialog_script:
-                video_path = await _render_dialog_video(dialog_script, break_id)
-            else:
-                video_path = await _render_video(script, audio_path, host["id"], break_id)
 
-            if video_path:
-                hls_video_path = await _convert_to_hls(video_path, break_id)
+        if dialog_script:
+            video_path = await _render_dialog_video(dialog_script, break_id)
+        else:
+            video_path = await _render_video(script, audio_path, host["id"], break_id)
 
-        # 7. Mark ready + inject
+        if video_path:
+            hls_video_path = await _convert_to_hls(video_path, break_id)
+
+        # 8. Mark ready
         elapsed_ms = int((time.time() - t0) * 1000)
         await break_queue.mark_ready(
             break_id,
@@ -233,17 +209,11 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
             },
         )
 
-        # Push to Liquidsoap
-        pushed = await liquidsoap_client.push_break(audio_path)
-        # Always reset counter to prevent accumulation, even if push failed
-        await liquidsoap_client.reset_counter()
-
-        # Mark as PLAYED once pushed (Liquidsoap has no play-complete callback)
-        if pushed:
-            await break_queue.mark_played(break_id)
+        # Mark as PLAYED (TV has no separate playout step)
+        await break_queue.mark_played(break_id)
 
         await _log_break(break_id, t0, deg_level)
-        print(f"[builder] Break {break_id} {'played' if pushed else 'ready (push failed)'} in {elapsed_ms}ms (deg={deg_level})")
+        print(f"[builder] Break {break_id} ready in {elapsed_ms}ms (deg={deg_level})")
 
     except Exception as e:
         print(f"[builder] Pipeline error: {e}")

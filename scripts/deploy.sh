@@ -1,13 +1,13 @@
 #!/bin/bash
-# Hermes Radio — Deploy from dev to /opt/hermes/
+# Hermes TV — Deploy from dev to /opt/hermes/
 # Usage: sudo bash scripts/deploy.sh
 
 set -euo pipefail
 
-SRC="/home/diego/Documents/hermes"
+SRC="/home/diego/Documents/hermestv"
 DST="/opt/hermes"
 
-echo "=== Deploying Hermes Radio ==="
+echo "=== Deploying Hermes TV ==="
 echo "Source: $SRC"
 echo "Target: $DST"
 

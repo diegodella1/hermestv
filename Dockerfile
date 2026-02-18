@@ -4,10 +4,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# System deps: Liquidsoap, FFmpeg, espeak-ng, Python
+# System deps: FFmpeg, espeak-ng, Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 python3-pip python3-venv \
-    liquidsoap \
     ffmpeg \
     espeak-ng \
     curl \
@@ -37,7 +36,7 @@ RUN mkdir -p /opt/hermes/models && \
       "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0/en/en_US/ryan/high/en_US-ryan-high.onnx.json"
 
 # Create directories
-RUN mkdir -p /opt/hermes/data/{logs,breaks,stings} /opt/hermes/music /tmp/hls
+RUN mkdir -p /opt/hermes/data/{logs,breaks,stings} /tmp/hls_video
 
 WORKDIR /opt/hermes
 
@@ -53,11 +52,9 @@ RUN chmod +x scripts/*.sh scripts/*.py
 
 # Env defaults (overridable via Coolify env vars)
 ENV HERMES_DATA_DIR=/opt/hermes/data
-ENV HERMES_MUSIC_DIR=/opt/hermes/music
 ENV HERMES_MODELS_DIR=/opt/hermes/models
-ENV HERMES_HLS_DIR=/tmp/hls
 ENV HERMES_DB_PATH=/opt/hermes/data/hermes.db
-ENV LIQUIDSOAP_SOCKET=/tmp/liquidsoap.sock
+ENV HERMES_HLS_VIDEO_DIR=/tmp/hls_video
 ENV HERMES_HOST=0.0.0.0
 ENV HERMES_PORT=8100
 ENV PIPER_BIN=/usr/local/bin/piper

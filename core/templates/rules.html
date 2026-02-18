@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Rules — Hermes Radio{% endblock %}
+{% block title %}Rules — Hermes TV{% endblock %}
 {% block content %}
 <h2>Rules & Settings</h2>
 
@@ -7,24 +7,20 @@
 <form method="post" action="{{ base }}/admin/rules">
     <div class="grid">
         <label>
-            Every N tracks
-            <input type="number" name="every_n_tracks" value="{{ settings.get('every_n_tracks', '4') }}" min="1" max="20">
-        </label>
-        <label>
-            Prepare at track
-            <input type="number" name="prepare_at_track" value="{{ settings.get('prepare_at_track', '3') }}" min="1" max="20">
+            Break interval (minutes)
+            <input type="number" name="break_interval_minutes" value="{{ settings.get('break_interval_minutes', '15') }}" min="1" max="120">
         </label>
         <label>
             Cooldown (seconds)
             <input type="number" name="cooldown_seconds" value="{{ settings.get('cooldown_seconds', '120') }}" min="0">
         </label>
-    </div>
-
-    <div class="grid">
         <label>
             Break timeout (seconds)
             <input type="number" name="break_timeout_seconds" value="{{ settings.get('break_timeout_seconds', '30') }}" min="10" max="120">
         </label>
+    </div>
+
+    <div class="grid">
         <label>
             Breaking score threshold
             <input type="number" name="breaking_score_threshold" value="{{ settings.get('breaking_score_threshold', '8') }}" min="1" max="10">
@@ -74,6 +70,21 @@
         <label>
             Breaking max words
             <input type="number" name="breaking_max_words" value="{{ settings.get('breaking_max_words', '50') }}" min="10" max="100">
+        </label>
+    </div>
+
+    <h3>Video</h3>
+    <div class="grid">
+        <label>
+            Dialog mode
+            <select name="dialog_mode">
+                <option value="monologue" {{ 'selected' if settings.get('dialog_mode', 'monologue') == 'monologue' else '' }}>Monologue</option>
+                <option value="dialog" {{ 'selected' if settings.get('dialog_mode') == 'dialog' else '' }}>Dialog</option>
+            </select>
+        </label>
+        <label>
+            Dialog characters
+            <input type="text" name="dialog_characters" value="{{ settings.get('dialog_characters', 'alex,maya') }}" placeholder="alex,maya">
         </label>
     </div>
 

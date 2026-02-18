@@ -1,8 +1,8 @@
 <div class="stat-row" id="dashboard-stats"
      hx-get="{{ base }}/api/partials/dashboard-stats" hx-trigger="every 10s" hx-swap="outerHTML">
     <article class="stat-card">
-        <div class="stat-value">{{ track_count if track_count is not none else '?' }}</div>
-        <div class="stat-label">Track Count</div>
+        <div class="stat-value">{{ 'Active' if scheduler_running else 'Stopped' }}</div>
+        <div class="stat-label">Scheduler</div>
     </article>
     <article class="stat-card">
         <div class="stat-value">{{ breaks_played }}</div>

@@ -1,4 +1,4 @@
-"""Content filter — validates LLM-generated radio scripts."""
+"""Content filter — validates LLM-generated scripts."""
 
 import re
 

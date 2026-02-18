@@ -10,15 +10,13 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 INSERT OR IGNORE INTO settings (key, value) VALUES
-    ('every_n_tracks', '4'),
-    ('prepare_at_track', '3'),
+    ('break_interval_minutes', '15'),
     ('cooldown_seconds', '120'),
     ('break_timeout_seconds', '30'),
     ('quiet_mode', 'false'),
     ('quiet_hours_start', ''),
     ('quiet_hours_end', ''),
     ('breaking_score_threshold', '8'),
-    ('breaking_policy', 'end_of_track'),
     ('news_dedupe_window_minutes', '60'),
     ('elevenlabs_api_key', ''),
     ('openai_tts_model', 'tts-1'),
@@ -28,11 +26,12 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('break_max_chars', '600'),
     ('breaking_min_words', '10'),
     ('breaking_max_words', '50'),
+    ('dialog_mode', 'monologue'),
+    ('dialog_characters', 'alex,maya'),
     ('bitcoin_enabled', 'false'),
     ('bitcoin_api_key', ''),
     ('bitcoin_cache_ttl', '300'),
-    ('video_enabled', 'false'),
-    ('master_prompt', 'You are a radio host for Roxom Radio, a modern indie-style internet radio station.
+    ('master_prompt', 'You are a TV news anchor for Hermes TV, a modern internet news channel.
 
 RULES — you must always follow these:
 - Language: ALWAYS English
@@ -46,7 +45,7 @@ RULES — you must always follow these:
 - NEVER express political opinions or take sides
 - Be factual, neutral, brief
 - Weather first, then news (if both available)
-- Always end with a short transition back to music
+- Always end with a short sign-off
 
 EDITORIAL MEMORY:
 - If a headline covers a developing story (fire, earthquake, match, election), follow up naturally: "seguimos con lo del incendio...", "updating on the quake...", "more on that story...".
@@ -55,7 +54,7 @@ EDITORIAL MEMORY:
 - Each headline gets ONE sentence, maximum.
 
 STRUCTURE:
-[short intro] → [weather for listed cities] → [1-3 headlines] → [back to music]');
+[short intro] → [weather for listed cities] → [1-3 headlines] → [sign-off]');
 
 -- Hosts
 CREATE TABLE IF NOT EXISTS hosts (
