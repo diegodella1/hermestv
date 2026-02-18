@@ -119,6 +119,32 @@ async def current_status():
     }
 
 
+@router.post("/api/scheduler/start")
+async def scheduler_start(_=Depends(require_api_key)):
+    """Start the scheduler and persist the setting."""
+    if scheduler.is_running:
+        return {"status": "already_running"}
+    db = await get_db()
+    await db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('scheduler_enabled', 'true')")
+    await db.execute("UPDATE settings SET value = 'true', updated_at = datetime('now') WHERE key = 'scheduler_enabled'")
+    await db.commit()
+    scheduler.start()
+    return {"status": "started"}
+
+
+@router.post("/api/scheduler/stop")
+async def scheduler_stop(_=Depends(require_api_key)):
+    """Stop the scheduler and persist the setting."""
+    if not scheduler.is_running:
+        return {"status": "already_stopped"}
+    db = await get_db()
+    await db.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('scheduler_enabled', 'false')")
+    await db.execute("UPDATE settings SET value = 'false', updated_at = datetime('now') WHERE key = 'scheduler_enabled'")
+    await db.commit()
+    await scheduler.stop()
+    return {"status": "stopped"}
+
+
 # --- HTMX Partials for Dashboard ---
 
 @router.get("/api/partials/dashboard-stats", response_class=HTMLResponse)

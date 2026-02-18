@@ -26,6 +26,7 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     ('break_max_chars', '600'),
     ('breaking_min_words', '10'),
     ('breaking_max_words', '50'),
+    ('scheduler_enabled', 'false'),
     ('dialog_mode', 'monologue'),
     ('dialog_characters', 'alex,maya'),
     ('bitcoin_enabled', 'false'),

@@ -8,6 +8,11 @@
     <article class="stat-card">
         <div class="stat-value">{{ 'Active' if scheduler_running else 'Stopped' }}</div>
         <div class="stat-label">Scheduler</div>
+        {% if scheduler_running %}
+        <button class="btn-sm btn-danger" onclick="toggleScheduler('stop')">Stop</button>
+        {% else %}
+        <button class="btn-sm btn-success" onclick="toggleScheduler('start')">Start</button>
+        {% endif %}
     </article>
     <article class="stat-card">
         <div class="stat-value">{{ breaks_played }}</div>
@@ -58,4 +63,29 @@
         {% endfor %}
     </article>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.btn-sm { padding: 4px 12px; font-size: 0.8rem; margin-top: 6px; border: none; border-radius: 4px; cursor: pointer; }
+.btn-success { background: #22c55e; color: #fff; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-sm:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+<script>
+async function toggleScheduler(action) {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = action === 'start' ? 'Starting...' : 'Stopping...';
+    try {
+        const res = await fetch('{{ base }}/api/scheduler/' + action, {method: 'POST'});
+        const data = await res.json();
+        showToast('Scheduler ' + data.status, 'success');
+        setTimeout(() => htmx.ajax('GET', '{{ base }}/api/partials/dashboard-stats', {target: '#dashboard-stats', swap: 'outerHTML'}), 500);
+    } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+        btn.disabled = false;
+    }
+}
+</script>
 {% endblock %}

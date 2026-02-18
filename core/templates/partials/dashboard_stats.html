@@ -3,6 +3,11 @@
     <article class="stat-card">
         <div class="stat-value">{{ 'Active' if scheduler_running else 'Stopped' }}</div>
         <div class="stat-label">Scheduler</div>
+        {% if scheduler_running %}
+        <button class="btn-sm btn-danger" onclick="toggleScheduler('stop')">Stop</button>
+        {% else %}
+        <button class="btn-sm btn-success" onclick="toggleScheduler('start')">Start</button>
+        {% endif %}
     </article>
     <article class="stat-card">
         <div class="stat-value">{{ breaks_played }}</div>

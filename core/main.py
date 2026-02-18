@@ -54,14 +54,20 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[hermes-tv] DB pruning error: {e}")
 
-    # Wire up break builder + start scheduler
+    # Wire up break builder (scheduler starts only if enabled in settings)
     try:
         from core.services.break_builder import prepare_break
         scheduler.set_prepare_break_fn(prepare_break)
-        scheduler.start()
-        print("[hermes-tv] Scheduler started")
+        db = await get_db()
+        cursor = await db.execute("SELECT value FROM settings WHERE key = 'scheduler_enabled'")
+        row = await cursor.fetchone()
+        if row and row["value"] == "true":
+            scheduler.start()
+            print("[hermes-tv] Scheduler started (enabled in settings)")
+        else:
+            print("[hermes-tv] Scheduler idle (enable via admin dashboard)")
     except Exception as e:
-        print(f"[hermes-tv] Scheduler start error: {e}")
+        print(f"[hermes-tv] Scheduler setup error: {e}")
 
     # Ensure HLS video dir exists + clean old dirs (>24h)
     try:
