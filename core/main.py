@@ -72,8 +72,26 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Hermes Radio", version="0.1.0", lifespan=lifespan,
-    root_path=BASE_PATH,
 )
+
+# Strip BASE_PATH prefix from incoming requests (Tailscale Funnel does NOT strip it)
+# Templates still generate URLs with {{ base }} prefix for the browser.
+if BASE_PATH:
+    from starlette.types import ASGIApp, Receive, Scope, Send
+
+    class StripBasePath:
+        """ASGI middleware that strips BASE_PATH prefix from request path."""
+        def __init__(self, app: ASGIApp) -> None:
+            self.app = app
+
+        async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+            if scope["type"] in ("http", "websocket"):
+                path: str = scope["path"]
+                if path.startswith(BASE_PATH):
+                    scope["path"] = path[len(BASE_PATH):] or "/"
+            await self.app(scope, receive, send)
+
+    app.add_middleware(StripBasePath)
 
 # CORS — needed for HLS players in browsers
 app.add_middleware(
