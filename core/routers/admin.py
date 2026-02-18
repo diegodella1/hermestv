@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, Upload
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import HERMES_API_KEY, MUSIC_DIR, BASE_PATH
+from core.config import HERMES_API_KEY, MUSIC_DIR, BASE_PATH, HLS_VIDEO_DIR
 from core.database import get_db
 
 router = APIRouter(tags=["admin"])
@@ -766,6 +766,94 @@ async def music_reload(request: Request, _=Depends(require_api_key)):
     from urllib.parse import quote
     msg = f"Playlist updated ({count} tracks)" if ok else f"Playlist file updated ({count} tracks) but Liquidsoap not connected"
     return _redirect(f"/admin/music?flash={quote(msg)}&flash_type=success")
+
+
+# --- Videos ---
+def _parse_video_break(row) -> dict | None:
+    """Parse a break row into video info dict."""
+    d = dict(row)
+    meta = {}
+    if d.get("meta_json"):
+        try:
+            meta = json.loads(d["meta_json"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    video_path = meta.get("video_path")
+    if not video_path:
+        return None
+    from pathlib import Path as _P
+    video_filename = _P(video_path).name
+    hls_video_path = meta.get("hls_video_path")
+    has_hls = bool(hls_video_path and _P(hls_video_path).parent.exists())
+    return {
+        "break_id": d["id"],
+        "played_at": d.get("played_at") or d.get("created_at"),
+        "host_id": meta.get("host", d.get("host_id", "")),
+        "type": d.get("type", ""),
+        "script_text": d.get("script_text", ""),
+        "video_filename": video_filename,
+        "mp4_url": f"/video/{video_filename}",
+        "hls_url": f"/hls-video/{d['id']}/index.m3u8" if has_hls else None,
+        "headlines": meta.get("headlines", 0),
+        "bitcoin": meta.get("bitcoin", False),
+    }
+
+
+@router.get("/api/video/list")
+async def api_video_list(_=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT id, host_id, type, played_at, created_at, script_text, meta_json
+           FROM break_queue
+           WHERE status = 'PLAYED' AND meta_json LIKE '%video_path%'
+           ORDER BY played_at DESC LIMIT 20"""
+    )
+    results = []
+    for row in await cursor.fetchall():
+        info = _parse_video_break(row)
+        if info:
+            results.append(info)
+    return results
+
+
+@router.get("/api/video/latest")
+async def api_video_latest(_=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT id, host_id, type, played_at, created_at, script_text, meta_json
+           FROM break_queue
+           WHERE status = 'PLAYED' AND meta_json LIKE '%video_path%'
+           ORDER BY played_at DESC LIMIT 1"""
+    )
+    row = await cursor.fetchone()
+    if not row:
+        return {"break_id": None}
+    info = _parse_video_break(row)
+    return info or {"break_id": None}
+
+
+@router.get("/admin/videos", response_class=HTMLResponse)
+async def videos_page(request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT id, host_id, type, played_at, created_at, script_text, meta_json
+           FROM break_queue
+           WHERE status = 'PLAYED' AND meta_json LIKE '%video_path%'
+           ORDER BY played_at DESC LIMIT 20"""
+    )
+    videos = []
+    for row in await cursor.fetchall():
+        info = _parse_video_break(row)
+        if info:
+            videos.append(info)
+
+    # Host names
+    cursor = await db.execute("SELECT id, label FROM hosts")
+    host_names = {r["id"]: r["label"] for r in await cursor.fetchall()}
+
+    return templates.TemplateResponse("videos.html", _template_ctx(
+        request, "videos", videos=videos, host_names=host_names,
+    ))
 
 
 # --- Breaking page ---

@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime, timezone
 
+from core.config import BREAKS_DIR, HLS_VIDEO_DIR
 from core.database import get_db
 from core.providers import weather, news, llm, tts_router, bitcoin
 from core.services import (
@@ -203,11 +204,15 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
 
         # 6b. Video render (optional, non-blocking)
         video_path = None
+        hls_video_path = None
         if settings.get("video_enabled") == "true":
             if dialog_script:
                 video_path = await _render_dialog_video(dialog_script, break_id)
             else:
                 video_path = await _render_video(script, audio_path, host["id"], break_id)
+
+            if video_path:
+                hls_video_path = await _convert_to_hls(video_path, break_id)
 
         # 7. Mark ready + inject
         elapsed_ms = int((time.time() - t0) * 1000)
@@ -224,6 +229,7 @@ async def prepare_break(is_breaking: bool = False, breaking_note: str = "", rece
                 "weather_cities": len(weather_data),
                 "bitcoin": bitcoin_data is not None,
                 "video_path": video_path,
+                "hls_video_path": hls_video_path,
             },
         )
 
@@ -331,13 +337,68 @@ async def _render_dialog_video(dialog_script: dict, break_id: str) -> str | None
                 render_dialog_video,
                 dialog_script=dialog_script,
                 break_id=break_id,
-                output_dir="output/",
+                output_dir=str(BREAKS_DIR),
             ),
         )
         return result
     except Exception as e:
         print(f"[builder] Dialog video render failed (non-fatal): {e}")
         return None
+
+
+async def _convert_to_hls(video_path: str, break_id: str) -> str | None:
+    """Convert MP4 to HLS segments (remux, no re-encode)."""
+    try:
+        import asyncio
+        import subprocess
+        from pathlib import Path
+
+        hls_dir = HLS_VIDEO_DIR / break_id
+        hls_dir.mkdir(parents=True, exist_ok=True)
+        playlist = hls_dir / "index.m3u8"
+
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(None, lambda: subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", video_path,
+                "-c", "copy", "-f", "hls",
+                "-hls_time", "4",
+                "-hls_playlist_type", "vod",
+                "-hls_segment_filename", str(hls_dir / "%03d.ts"),
+                str(playlist),
+            ],
+            capture_output=True, timeout=60,
+        ))
+
+        if result.returncode != 0:
+            print(f"[builder] HLS conversion failed: {result.stderr.decode()[-200:]}")
+            return None
+
+        # Cleanup old HLS dirs (keep last 5)
+        _cleanup_old_hls()
+
+        print(f"[builder] HLS segments created: {hls_dir}")
+        return str(playlist)
+    except Exception as e:
+        print(f"[builder] HLS conversion failed (non-fatal): {e}")
+        return None
+
+
+def _cleanup_old_hls(keep: int = 5):
+    """Remove old HLS video directories, keeping the most recent ones."""
+    try:
+        if not HLS_VIDEO_DIR.exists():
+            return
+        dirs = sorted(
+            [d for d in HLS_VIDEO_DIR.iterdir() if d.is_dir()],
+            key=lambda d: d.stat().st_mtime,
+            reverse=True,
+        )
+        import shutil
+        for d in dirs[keep:]:
+            shutil.rmtree(d, ignore_errors=True)
+    except Exception as e:
+        print(f"[builder] HLS cleanup error: {e}")
 
 
 async def _log_break(break_id: str, t0: float, deg_level: int, error: str = ""):

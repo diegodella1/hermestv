@@ -33,3 +33,4 @@ PIPER_BIN = os.environ.get("PIPER_BIN", "/usr/local/bin/piper")
 BREAKS_DIR = DATA_DIR / "breaks"
 STINGS_DIR = DATA_DIR / "stings"
 LOGS_DIR = DATA_DIR / "logs"
+HLS_VIDEO_DIR = Path(os.environ.get("HERMES_HLS_VIDEO_DIR", "/tmp/hls_video"))

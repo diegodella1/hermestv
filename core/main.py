@@ -15,7 +15,7 @@ from starlette.responses import Response
 # Ensure core package is importable
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.config import HLS_DIR, BASE_PATH
+from core.config import HLS_DIR, HLS_VIDEO_DIR, BREAKS_DIR, BASE_PATH
 from core.database import init_db, close_db
 from core.routers import playout, status
 from core.services import liquidsoap_client
@@ -61,6 +61,18 @@ async def lifespan(app: FastAPI):
         print("[hermes] Break builder wired")
     except Exception as e:
         print(f"[hermes] Break builder not available: {e}")
+
+    # Ensure HLS video dir exists + clean old dirs (>24h)
+    try:
+        os.makedirs(str(HLS_VIDEO_DIR), exist_ok=True)
+        import shutil
+        from time import time as _time
+        cutoff = _time() - 86400
+        for d in HLS_VIDEO_DIR.iterdir():
+            if d.is_dir() and d.stat().st_mtime < cutoff:
+                shutil.rmtree(d, ignore_errors=True)
+    except Exception as e:
+        print(f"[hermes] HLS video cleanup error: {e}")
 
     yield
 
@@ -139,6 +151,52 @@ async def serve_hls(filename: str):
         )
     return Response(status_code=404)
 
+
+# MP4 video files from breaks dir
+breaks_dir = Path(str(BREAKS_DIR))
+os.makedirs(str(breaks_dir), exist_ok=True)
+
+
+@app.get("/video/{filename}")
+async def serve_video(filename: str):
+    if ".." in filename or "/" in filename:
+        return Response(status_code=400)
+    filepath = breaks_dir / filename
+    if not filepath.exists() or not filepath.is_file():
+        return Response(status_code=404)
+    return FileResponse(
+        filepath, media_type="video/mp4",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+
+# HLS video segments per break
+hls_video_dir = Path(str(HLS_VIDEO_DIR))
+os.makedirs(str(hls_video_dir), exist_ok=True)
+
+
+@app.get("/hls-video/{break_id}/{filename}")
+async def serve_hls_video(break_id: str, filename: str):
+    if ".." in break_id or "/" in break_id or ".." in filename or "/" in filename:
+        return Response(status_code=400)
+    filepath = hls_video_dir / break_id / filename
+    if not filepath.exists() or not filepath.is_file():
+        return Response(status_code=404)
+    if filename.endswith(".m3u8"):
+        return FileResponse(
+            filepath,
+            media_type="application/vnd.apple.mpegurl",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
+    elif filename.endswith(".ts"):
+        return FileResponse(
+            filepath,
+            media_type="video/MP2T",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    return Response(status_code=404)
+
+
 # Templates
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.globals["base"] = BASE_PATH
@@ -151,6 +209,11 @@ app.include_router(status.router)
 @app.get("/", response_class=HTMLResponse)
 async def player_page(request: Request):
     return templates.TemplateResponse("player.html", {"request": request})
+
+
+@app.get("/tv", response_class=HTMLResponse)
+async def tv_page(request: Request):
+    return templates.TemplateResponse("tv.html", {"request": request})
 
 
 try:

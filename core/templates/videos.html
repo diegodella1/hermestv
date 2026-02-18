@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Videos — Hermes Radio{% endblock %}
+{% block content %}
+<div class="flex-between">
+    <h2>Videos</h2>
+    <a href="{{ base }}/tv" target="_blank" role="button" class="outline btn-sm">TV Player &#8599;</a>
+</div>
+
+<div id="video-list"
+     hx-get="{{ base }}/admin/videos" hx-trigger="every 30s" hx-select="#video-list" hx-swap="outerHTML">
+
+{% if videos %}
+<div id="video-player-area" style="display:none; margin-bottom: 1.5rem;">
+    <article>
+        <header class="flex-between">
+            <span id="player-title">Now Playing</span>
+            <button class="outline btn-xs" onclick="closePlayer()">Close</button>
+        </header>
+        <video id="video-player" controls style="width:100%; max-height: 480px; background: #000;">
+            Your browser does not support the video tag.
+        </video>
+        <details id="player-script" style="margin-top: 0.5rem;">
+            <summary>Script</summary>
+            <p id="player-script-text" style="font-size: 0.85rem;"></p>
+        </details>
+    </article>
+</div>
+
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr>
+            <th>Played</th>
+            <th>Host</th>
+            <th>Type</th>
+            <th>HLS</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for v in videos %}
+        <tr>
+            <td>{{ v.played_at or '—' }}</td>
+            <td>{{ host_names.get(v.host_id, v.host_id) }}</td>
+            <td>
+                {{ v.type }}
+                {% if v.bitcoin %}<span class="badge badge-warn">BTC</span>{% endif %}
+            </td>
+            <td>
+                {% if v.hls_url %}
+                <span class="badge badge-ok">HLS</span>
+                {% else %}
+                <span class="text-muted">MP4 only</span>
+                {% endif %}
+            </td>
+            <td class="flex-row-tight">
+                <button class="outline btn-xs"
+                    onclick="playVideo('{{ base }}{{ v.mp4_url }}', '{{ v.break_id }}', {{ v.script_text | tojson }})">
+                    Play
+                </button>
+                {% if v.hls_url %}
+                <button class="outline btn-xs"
+                    onclick="playHLS('{{ base }}{{ v.hls_url }}', '{{ v.break_id }}', {{ v.script_text | tojson }})">
+                    HLS
+                </button>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty-state">No video breaks yet. Enable <code>video_enabled</code> in Rules to start generating videos.</p>
+{% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+<script>
+const videoEl = document.getElementById('video-player');
+const playerArea = document.getElementById('video-player-area');
+const playerTitle = document.getElementById('player-title');
+const playerScriptText = document.getElementById('player-script-text');
+let hlsInstance = null;
+
+function playVideo(url, breakId, script) {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    videoEl.src = url;
+    playerTitle.textContent = breakId;
+    playerScriptText.textContent = script || '';
+    playerArea.style.display = '';
+    videoEl.play().catch(() => {});
+}
+
+function playHLS(url, breakId, script) {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    playerTitle.textContent = breakId + ' (HLS)';
+    playerScriptText.textContent = script || '';
+    playerArea.style.display = '';
+
+    if (Hls.isSupported()) {
+        hlsInstance = new Hls();
+        hlsInstance.loadSource(url);
+        hlsInstance.attachMedia(videoEl);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => videoEl.play().catch(() => {}));
+    } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        videoEl.src = url;
+        videoEl.play().catch(() => {});
+    }
+}
+
+function closePlayer() {
+    videoEl.pause();
+    videoEl.src = '';
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    playerArea.style.display = 'none';
+}
+</script>
+{% endblock %}

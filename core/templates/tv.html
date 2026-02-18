@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes TV</title>
+    <link rel="icon" href="{{ base }}/static/favicon.svg" type="image/svg+xml">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #000; color: #fff; font-family: system-ui, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 100vh; overflow: hidden;
+        }
+        #tv-container {
+            position: relative; width: 100vw; height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #tv-video {
+            width: 100%; height: 100%; object-fit: contain; background: #000;
+            display: none;
+        }
+        #standby {
+            text-align: center; animation: pulse 3s ease-in-out infinite;
+        }
+        #standby h1 { font-size: 2.5rem; font-weight: 300; margin-bottom: 0.5rem; }
+        #standby p { font-size: 1rem; color: #888; }
+        #standby .dot {
+            display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+            margin-right: 8px; vertical-align: middle;
+        }
+        #standby .dot.waiting { background: #f59e0b; }
+        #standby .dot.live { background: #10b981; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        /* Controls overlay */
+        #controls {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding: 1.5rem; display: flex; align-items: center; gap: 1rem;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        #tv-container:hover #controls,
+        #tv-container.show-controls #controls { opacity: 1; }
+        #controls button {
+            background: none; border: none; color: #fff; font-size: 1.3rem;
+            cursor: pointer; padding: 0.3rem;
+        }
+        #controls button:hover { color: #7c3aed; }
+        #vol-slider { width: 100px; accent-color: #7c3aed; }
+        #break-info {
+            flex: 1; font-size: 0.85rem; color: #ccc;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #fullscreen-btn { margin-left: auto; }
+
+        /* Status badge */
+        #status-badge {
+            position: absolute; top: 1rem; right: 1rem;
+            font-size: 0.75rem; padding: 0.25rem 0.6rem;
+            border-radius: 4px; background: rgba(0,0,0,0.6);
+            display: none;
+        }
+        #status-badge.live { display: block; background: rgba(16,185,129,0.8); }
+    </style>
+</head>
+<body>
+    <div id="tv-container">
+        <video id="tv-video" playsinline></video>
+        <div id="standby">
+            <h1>Hermes TV</h1>
+            <p><span class="dot waiting"></span>Waiting for next break...</p>
+        </div>
+        <div id="status-badge"></div>
+        <div id="controls">
+            <button id="play-btn" onclick="togglePlay()" title="Play/Pause">&#9654;</button>
+            <input type="range" id="vol-slider" min="0" max="100" value="80"
+                   oninput="setVol(this.value)" title="Volume">
+            <span id="break-info"></span>
+            <button id="fullscreen-btn" onclick="goFullscreen()" title="Fullscreen">&#x26F6;</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script>
+    const video = document.getElementById('tv-video');
+    const standby = document.getElementById('standby');
+    const playBtn = document.getElementById('play-btn');
+    const breakInfo = document.getElementById('break-info');
+    const statusBadge = document.getElementById('status-badge');
+    const container = document.getElementById('tv-container');
+
+    let hls = null;
+    let currentBreakId = null;
+    let isPlaying = false;
+    let userPaused = false;
+
+    function setVol(v) {
+        video.volume = v / 100;
+        localStorage.setItem('hermes-tv-vol', v);
+    }
+
+    const savedVol = localStorage.getItem('hermes-tv-vol');
+    if (savedVol) {
+        document.getElementById('vol-slider').value = savedVol;
+        video.volume = savedVol / 100;
+    } else {
+        video.volume = 0.8;
+    }
+
+    function togglePlay() {
+        if (isPlaying) {
+            video.pause();
+            userPaused = true;
+            playBtn.innerHTML = '&#9654;';
+        } else {
+            video.play().catch(() => {});
+            userPaused = false;
+            playBtn.innerHTML = '&#9646;&#9646;';
+        }
+        isPlaying = !isPlaying;
+    }
+
+    function goFullscreen() {
+        if (document.fullscreenElement) {
+            document.exitFullscreen();
+        } else {
+            container.requestFullscreen().catch(() => {});
+        }
+    }
+
+    function loadBreak(data) {
+        if (!data || !data.break_id) {
+            // No video available
+            video.style.display = 'none';
+            standby.style.display = '';
+            standby.querySelector('.dot').className = 'dot waiting';
+            standby.querySelector('p').innerHTML = '<span class="dot waiting"></span>Waiting for next break...';
+            statusBadge.className = '';
+            statusBadge.style.display = 'none';
+            return;
+        }
+
+        if (data.break_id === currentBreakId) return;
+        currentBreakId = data.break_id;
+
+        // Prefer HLS, fallback to MP4
+        const url = data.hls_url
+            ? '{{ base }}' + data.hls_url
+            : '{{ base }}' + data.mp4_url;
+        const useHLS = !!data.hls_url;
+
+        if (hls) { hls.destroy(); hls = null; }
+
+        standby.style.display = 'none';
+        video.style.display = '';
+        statusBadge.textContent = 'LIVE';
+        statusBadge.className = 'live';
+
+        breakInfo.textContent = data.host_id + ' — ' + (data.played_at || '');
+
+        if (useHLS && Hls.isSupported()) {
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (!userPaused) {
+                    video.play().then(() => {
+                        isPlaying = true;
+                        playBtn.innerHTML = '&#9646;&#9646;';
+                    }).catch(() => {});
+                }
+            });
+        } else {
+            video.src = url;
+            if (!userPaused) {
+                video.play().then(() => {
+                    isPlaying = true;
+                    playBtn.innerHTML = '&#9646;&#9646;';
+                }).catch(() => {});
+            }
+        }
+    }
+
+    async function poll() {
+        try {
+            const res = await fetch('{{ base }}/api/video/latest');
+            if (res.ok) {
+                const data = await res.json();
+                loadBreak(data);
+            }
+        } catch (e) {}
+    }
+
+    // Show controls briefly on load
+    container.classList.add('show-controls');
+    setTimeout(() => container.classList.remove('show-controls'), 3000);
+
+    // Auto-hide cursor
+    let cursorTimer;
+    document.addEventListener('mousemove', () => {
+        document.body.style.cursor = '';
+        container.classList.add('show-controls');
+        clearTimeout(cursorTimer);
+        cursorTimer = setTimeout(() => {
+            document.body.style.cursor = 'none';
+            container.classList.remove('show-controls');
+        }, 3000);
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+        if (e.code === 'KeyF') goFullscreen();
+    });
+
+    video.addEventListener('ended', () => {
+        isPlaying = false;
+        playBtn.innerHTML = '&#9654;';
+        statusBadge.className = '';
+        statusBadge.style.display = 'none';
+    });
+
+    poll();
+    setInterval(poll, 10000);
+    </script>
+</body>
+</html>
