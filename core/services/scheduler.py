@@ -55,13 +55,18 @@ class BreakScheduler:
 
     async def _loop(self):
         print("[scheduler] Started")
+        first_run = True
         while self._running:
             try:
                 interval = await self._get_interval_minutes()
-                self._next_trigger = datetime.now(timezone.utc)
 
-                # Wait for the interval
-                await asyncio.sleep(interval * 60)
+                if first_run:
+                    # Fire immediately on start, don't wait
+                    first_run = False
+                    print("[scheduler] First run — triggering immediately")
+                else:
+                    self._next_trigger = datetime.now(timezone.utc)
+                    await asyncio.sleep(interval * 60)
 
                 if not self._running:
                     break
@@ -74,7 +79,7 @@ class BreakScheduler:
                 # Trigger break generation
                 if self._prepare_break_fn:
                     self._last_trigger = datetime.now(timezone.utc)
-                    print(f"[scheduler] Triggering break generation")
+                    print("[scheduler] Triggering break generation")
                     asyncio.create_task(self._prepare_break_fn())
                 else:
                     print("[scheduler] No prepare_break function set")
