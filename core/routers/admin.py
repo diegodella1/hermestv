@@ -619,7 +619,7 @@ async def api_video_list(_=Depends(require_api_key)):
 
 
 @router.get("/api/video/latest")
-async def api_video_latest(_=Depends(require_api_key)):
+async def api_video_latest():
     db = await get_db()
     cursor = await db.execute(
         """SELECT id, host_id, type, played_at, created_at, script_text, meta_json
