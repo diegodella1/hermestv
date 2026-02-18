@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Visual Guide — Hermes Radio{% endblock %}
+{% block content %}
+<h2>Visual Module Guide</h2>
+<p>How Hermes TV generates puppet-style animated videos from radio breaks.</p>
+
+<article>
+    <header>Quick Start</header>
+    <ol>
+        <li>Enable video: go to <a href="{{ base }}/admin/rules">Rules</a> and set <code>video_enabled</code> to <strong>true</strong></li>
+        <li>Choose mode: set <code>dialog_mode</code> to <strong>monologue</strong> (single host) or <strong>dialog</strong> (multi-character)</li>
+        <li>Wait for the next break &mdash; the video renders automatically</li>
+        <li>Watch it in <a href="{{ base }}/admin/videos">Videos</a> or the <a href="{{ base }}/tv" target="_blank">TV Player</a></li>
+    </ol>
+</article>
+
+<article>
+    <header>How It Works</header>
+    <p>The visual pipeline is <strong>not frame-by-frame</strong>. It's ultra efficient:</p>
+    <ol>
+        <li><strong>Director</strong> reads the script and generates an EDL (Edit Decision List) &mdash; a sequence of camera shots</li>
+        <li><strong>Compositor</strong> composes 2 static PNGs per segment: one with mouth closed (idle), one with mouth open (talking)</li>
+        <li><strong>FFmpeg</strong> alternates between the two PNGs based on RMS audio analysis (lip-sync)</li>
+        <li>All segments are concatenated with transitions (cut/dissolve/fade)</li>
+        <li>The final MP4 is remuxed to HLS for streaming</li>
+    </ol>
+    <p>A typical 30-second break renders in <strong>~20 seconds</strong> on the Pi 5.</p>
+</article>
+
+<article>
+    <header>Characters</header>
+    <p>Each character is a folder inside <code>assets/characters/</code>:</p>
+    <pre><code>assets/characters/
+  alex/
+    idle.png          &larr; mouth closed (required)
+    talking.png       &larr; mouth open (required)
+    config.json       &larr; position & scale per shot type
+    excited_idle.png  &larr; emotion variant (optional)
+    excited_talking.png</code></pre>
+
+    <h4>Current Characters</h4>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Role</th><th>Host mapping</th><th>Voice (Piper)</th></tr></thead>
+        <tbody>
+            <tr><td><code>alex</code></td><td>Alex</td><td>Bull / on-chain</td><td>host_a (Luna)</td><td>en_US-lessac-high</td></tr>
+            <tr><td><code>maya</code></td><td>Maya</td><td>Macro / cautious</td><td>host_b (Max)</td><td>en_US-ryan-high</td></tr>
+            <tr><td><code>rolo</code></td><td>Rolo</td><td>Philosophical / journalist</td><td>&mdash;</td><td>en_US-lessac-high</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h4>Adding a New Character</h4>
+    <ol>
+        <li>Create folder: <code>assets/characters/yourchar/</code></li>
+        <li>Add <strong>idle.png</strong> (mouth closed) and <strong>talking.png</strong> (mouth open) &mdash; transparent background PNGs, any size (will be scaled)</li>
+        <li>Create <strong>config.json</strong>:</li>
+    </ol>
+    <pre><code>{
+  "label": "Your Character",
+  "position_x": 0.5,
+  "position_y": 0.85,
+  "scale": 1.0,
+  "positions": {
+    "wide":          [0.3, 0.85, 0.6],
+    "closeup_left":  [0.5, 0.85, 1.0],
+    "closeup_right": [0.5, 0.85, 1.0],
+    "twoshot":       [0.3, 0.85, 0.8]
+  }
+}</code></pre>
+    <p><strong>Position values</strong>: <code>[x, y, scale]</code> where x/y are 0.0&ndash;1.0 (fraction of 1920x1080), and scale is the character size multiplier.</p>
+
+    <h4>Emotion Variants (Optional)</h4>
+    <p>Add PNGs named <code>{emotion}_idle.png</code> and <code>{emotion}_talking.png</code> in the character folder. They are auto-detected.</p>
+    <p>Example: <code>excited_idle.png</code>, <code>excited_talking.png</code>, <code>angry_idle.png</code>, etc.</p>
+    <p>When no emotion-specific PNG exists, the default idle/talking is used.</p>
+</article>
+
+<article>
+    <header>Backgrounds</header>
+    <p>Backgrounds live in <code>assets/backgrounds/</code> as 1920&times;1080 PNGs:</p>
+    <pre><code>assets/backgrounds/
+  studio_wide.png           &larr; wide shot (both characters visible)
+  studio_closeup_left.png   &larr; closeup on left character
+  studio_closeup_right.png  &larr; closeup on right character
+  studio_twoshot.png        &larr; two characters in frame</code></pre>
+    <p>The naming convention is <code>{base}_{shot_type}.png</code>. The default base is <strong>studio</strong>.</p>
+    <p>To use different backgrounds per scene, change the <code>background</code> field in the script to match your base name (e.g. <code>outdoor</code> &rarr; <code>outdoor_wide.png</code>, <code>outdoor_closeup_left.png</code>, etc.).</p>
+</article>
+
+<article>
+    <header>Camera System (Director)</header>
+    <p>The Director automatically chooses camera shots based on the script:</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Shot Type</th><th>When Used</th></tr></thead>
+        <tbody>
+            <tr><td><strong>wide</strong></td><td>Scene start, every {{ wide_interval }} lines without one</td></tr>
+            <tr><td><strong>closeup_left / closeup_right</strong></td><td>When a character is speaking (left = first character, right = second)</td></tr>
+            <tr><td><strong>twoshot</strong></td><td>Rapid exchanges &mdash; speakers change with &lt;2s gap</td></tr>
+            <tr><td><strong>reaction</strong></td><td>Random ({{ reaction_pct }}% chance) &mdash; silent closeup of listener</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h4>Transitions</h4>
+    <p>Between shots, the system randomly picks: <strong>cut</strong> ({{ cut_pct }}%), <strong>dissolve</strong> ({{ dissolve_pct }}%), or <strong>fade to black</strong> ({{ fade_pct }}%).</p>
+    <p>When all transitions are cuts, FFmpeg uses <code>-c copy</code> (instant concat). Mixed transitions trigger re-encode (slower).</p>
+
+    <h4>Camera Hints</h4>
+    <p>Scripts can override the automatic camera with a <code>camera_hint</code> per line: <code>"wide"</code>, <code>"closeup"</code>, or <code>"twoshot"</code>.</p>
+</article>
+
+<article>
+    <header>Dialog Mode</header>
+    <p>Two modes available in <a href="{{ base }}/admin/rules">Rules</a>:</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Mode</th><th>Setting</th><th>Description</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><strong>Monologue</strong></td>
+                <td><code>dialog_mode = monologue</code></td>
+                <td>Single host reads the script. One character on screen.</td>
+            </tr>
+            <tr>
+                <td><strong>Dialog</strong></td>
+                <td><code>dialog_mode = dialog</code></td>
+                <td>LLM generates a multi-character dialog script. Each character gets their own voice. Camera cuts between speakers.</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+    <p>For dialog mode, set <code>dialog_characters</code> to a comma-separated list (e.g. <code>alex,maya</code>).</p>
+</article>
+
+<article>
+    <header>Settings Reference</header>
+    <p>Video-related settings in <a href="{{ base }}/admin/rules">Rules</a>:</p>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Key</th><th>Values</th><th>Description</th></tr></thead>
+        <tbody>
+            <tr><td><code>video_enabled</code></td><td>true / false</td><td>Enable video generation for breaks</td></tr>
+            <tr><td><code>dialog_mode</code></td><td>monologue / dialog</td><td>Single host vs multi-character</td></tr>
+            <tr><td><code>dialog_characters</code></td><td>alex,maya</td><td>Characters for dialog mode</td></tr>
+        </tbody>
+    </table>
+    </div>
+</article>
+
+<article>
+    <header>Creating Your Own Assets</header>
+    <h4>Character PNGs</h4>
+    <ul>
+        <li>Transparent background (PNG with alpha)</li>
+        <li>Any resolution &mdash; the system scales automatically using the <code>scale</code> value in config.json</li>
+        <li><strong>idle.png</strong>: character with mouth closed (or neutral expression)</li>
+        <li><strong>talking.png</strong>: character with mouth open</li>
+        <li>The system rapidly alternates between them based on audio volume (RMS lip-sync)</li>
+        <li>For best results, keep both PNGs the same size with the character in the same position</li>
+    </ul>
+
+    <h4>Background PNGs</h4>
+    <ul>
+        <li>Exactly <strong>1920&times;1080</strong> pixels</li>
+        <li>No transparency needed (opaque)</li>
+        <li>Create 4 variants per studio: wide, closeup_left, closeup_right, twoshot</li>
+        <li>The wide shot should show the full scene</li>
+        <li>Closeups should be zoomed in to where the character will appear</li>
+    </ul>
+
+    <h4>Tip: Test Assets</h4>
+    <p>Run <code>python create_test_assets.py</code> to generate colored placeholder assets for all characters and backgrounds.</p>
+</article>
+
+<article>
+    <header>File Locations</header>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>What</th><th>Path</th></tr></thead>
+        <tbody>
+            <tr><td>Character assets</td><td><code>assets/characters/{name}/</code></td></tr>
+            <tr><td>Backgrounds</td><td><code>assets/backgrounds/</code></td></tr>
+            <tr><td>Generated MP4s</td><td><code>/opt/hermes/data/breaks/</code></td></tr>
+            <tr><td>HLS segments</td><td><code>/tmp/hls_video/{break_id}/</code></td></tr>
+            <tr><td>Visual config</td><td><code>visual/config.py</code></td></tr>
+            <tr><td>Host &rarr; Character map</td><td><code>visual/bridge.py</code> (HOST_TO_CHARACTER)</td></tr>
+            <tr><td>Voice config</td><td><code>visual/bridge.py</code> (CHARACTER_VOICE)</td></tr>
+        </tbody>
+    </table>
+    </div>
+</article>
+
+{% endblock %}

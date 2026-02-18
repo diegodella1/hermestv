@@ -856,6 +856,23 @@ async def videos_page(request: Request, _=Depends(require_api_key)):
     ))
 
 
+# --- Visual Guide ---
+@router.get("/admin/visual-guide", response_class=HTMLResponse)
+async def visual_guide_page(request: Request, _=Depends(require_api_key)):
+    from visual.config import (
+        WIDE_SHOT_INTERVAL, REACTION_PROBABILITY,
+        TRANSITION_CUT, TRANSITION_DISSOLVE, TRANSITION_FADE_BLACK,
+    )
+    return templates.TemplateResponse("visual_guide.html", _template_ctx(
+        request, "visual-guide",
+        wide_interval=WIDE_SHOT_INTERVAL,
+        reaction_pct=int(REACTION_PROBABILITY * 100),
+        cut_pct=int(TRANSITION_CUT * 100),
+        dissolve_pct=int(TRANSITION_DISSOLVE * 100),
+        fade_pct=int(TRANSITION_FADE_BLACK * 100),
+    ))
+
+
 # --- Breaking page ---
 @router.get("/admin/breaking", response_class=HTMLResponse)
 async def breaking_page(request: Request, _=Depends(require_api_key)):
