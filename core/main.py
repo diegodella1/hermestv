@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     try:
         from core.database import get_db
         db = await get_db()
-        c1 = await db.execute("DELETE FROM events_log WHERE created_at < datetime('now', '-7 days')")
+        c1 = await db.execute("DELETE FROM events_log WHERE timestamp < datetime('now', '-7 days')")
         c2 = await db.execute("DELETE FROM cache_news WHERE fetched_at < datetime('now', '-24 hours')")
         c3 = await db.execute("DELETE FROM break_queue WHERE status = 'FAILED' AND created_at < datetime('now', '-7 days')")
         await db.commit()
