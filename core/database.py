@@ -46,6 +46,9 @@ async def init_db():
         await db.executescript(f.read())
     print("[db] Schema initialized")
 
+    # Run migrations (creates tables not in schema.sql, e.g. characters)
+    await _migrate(db)
+
 
 async def _migrate(db: aiosqlite.Connection):
     """Idempotent migrations for existing databases."""
@@ -97,4 +100,103 @@ async def _migrate(db: aiosqlite.Connection):
             (key, default),
         )
 
+    # --- Characters table ---
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS characters (
+            id TEXT PRIMARY KEY,
+            label TEXT NOT NULL,
+            gender TEXT DEFAULT '',
+            age INTEGER DEFAULT 0,
+            behavior_prompt TEXT DEFAULT '',
+            piper_model TEXT DEFAULT 'en_US-lessac-high',
+            host_id TEXT DEFAULT '',
+            position_x REAL DEFAULT 0.5,
+            position_y REAL DEFAULT 0.85,
+            scale REAL DEFAULT 0.9,
+            positions_json TEXT DEFAULT '{}',
+            enabled BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Seed default characters if table is empty
+    cursor = await db.execute("SELECT COUNT(*) FROM characters")
+    count = (await cursor.fetchone())[0]
+    if count == 0:
+        await _seed_characters(db)
+
     await db.commit()
+
+
+async def _seed_characters(db):
+    """Pre-populate characters table from hardcoded data."""
+    import json
+    from core.character_prompts import CHARACTER_PROMPTS
+
+    seeds = [
+        {
+            "id": "alex",
+            "label": "Alex Nakamoto",
+            "gender": "male",
+            "behavior_prompt": CHARACTER_PROMPTS.get("alex", ""),
+            "piper_model": "en_US-lessac-high",
+            "host_id": "host_a",
+            "position_x": 0.3,
+            "position_y": 0.85,
+            "scale": 0.9,
+            "positions_json": json.dumps({
+                "wide": [0.3, 0.85, 0.6],
+                "closeup_left": [0.5, 0.85, 1.0],
+                "closeup_right": [0.5, 0.85, 1.0],
+                "twoshot": [0.3, 0.85, 0.8],
+            }),
+        },
+        {
+            "id": "maya",
+            "label": "Maya Torres",
+            "gender": "female",
+            "behavior_prompt": CHARACTER_PROMPTS.get("maya", ""),
+            "piper_model": "en_US-ryan-high",
+            "host_id": "host_b",
+            "position_x": 0.7,
+            "position_y": 0.85,
+            "scale": 0.9,
+            "positions_json": json.dumps({
+                "wide": [0.7, 0.85, 0.6],
+                "closeup_left": [0.5, 0.85, 1.0],
+                "closeup_right": [0.5, 0.85, 1.0],
+                "twoshot": [0.7, 0.85, 0.8],
+            }),
+        },
+        {
+            "id": "rolo",
+            "label": "Rolo Méndez",
+            "gender": "male",
+            "behavior_prompt": CHARACTER_PROMPTS.get("rolo", ""),
+            "piper_model": "en_US-lessac-high",
+            "host_id": "",
+            "position_x": 0.5,
+            "position_y": 0.85,
+            "scale": 0.9,
+            "positions_json": json.dumps({
+                "wide": [0.5, 0.85, 0.6],
+                "closeup_left": [0.5, 0.85, 1.0],
+                "closeup_right": [0.5, 0.85, 1.0],
+                "twoshot": [0.5, 0.85, 0.8],
+            }),
+        },
+    ]
+
+    for s in seeds:
+        await db.execute(
+            """INSERT OR IGNORE INTO characters
+               (id, label, gender, behavior_prompt, piper_model, host_id,
+                position_x, position_y, scale, positions_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                s["id"], s["label"], s["gender"], s["behavior_prompt"],
+                s["piper_model"], s["host_id"], s["position_x"],
+                s["position_y"], s["scale"], s["positions_json"],
+            ),
+        )
+    print("[db] Seeded 3 default characters")

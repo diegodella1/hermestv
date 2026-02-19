@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Edit Character — Hermes TV{% endblock %}
+{% block breadcrumb %}
+<nav aria-label="breadcrumb"><a href="{{ base }}/admin/characters">Characters</a> &rsaquo; Edit: {{ char.label }}</nav>
+{% endblock %}
+{% block content %}
+<h2>Edit Character: {{ char.label }}</h2>
+
+<form method="post" action="{{ base }}/admin/characters/{{ char.id }}">
+
+    <!-- Metadata -->
+    <fieldset>
+        <legend>Metadata</legend>
+        <div class="grid">
+            <label>
+                ID
+                <input type="text" value="{{ char.id }}" disabled>
+            </label>
+            <label>
+                Label
+                <input type="text" name="label" value="{{ char.label }}" required>
+            </label>
+        </div>
+        <div class="grid">
+            <label>
+                Gender
+                <select name="gender">
+                    <option value="" {{ 'selected' if not char.gender else '' }}>—</option>
+                    <option value="male" {{ 'selected' if char.gender == 'male' else '' }}>Male</option>
+                    <option value="female" {{ 'selected' if char.gender == 'female' else '' }}>Female</option>
+                    <option value="non-binary" {{ 'selected' if char.gender == 'non-binary' else '' }}>Non-binary</option>
+                </select>
+            </label>
+            <label>
+                Age
+                <input type="number" name="age" value="{{ char.age or 0 }}" min="0">
+            </label>
+            <label>
+                Host
+                <select name="host_id">
+                    <option value="">— None —</option>
+                    {% for h in hosts %}
+                    <option value="{{ h.id }}" {{ 'selected' if char.host_id == h.id else '' }}>{{ h.label }} ({{ h.id }})</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <label>
+            <input type="checkbox" name="enabled" {{ 'checked' if char.enabled else '' }}>
+            Enabled
+        </label>
+    </fieldset>
+
+    <!-- Prompt -->
+    <fieldset>
+        <legend>Behavior Prompt</legend>
+        <textarea name="behavior_prompt" rows="10" placeholder="Character personality, speech style, emotions...">{{ char.behavior_prompt }}</textarea>
+    </fieldset>
+
+    <!-- Voice -->
+    <fieldset>
+        <legend>Voice</legend>
+        <label>
+            Piper Model
+            <input type="text" name="piper_model" value="{{ char.piper_model }}"
+                   placeholder="en_US-lessac-high">
+        </label>
+    </fieldset>
+
+    <!-- Positions -->
+    <fieldset>
+        <legend>Positions</legend>
+        <div class="grid">
+            <label>
+                X
+                <input type="number" name="position_x" value="{{ char.position_x }}" step="0.01" min="0" max="1">
+            </label>
+            <label>
+                Y
+                <input type="number" name="position_y" value="{{ char.position_y }}" step="0.01" min="0" max="1">
+            </label>
+            <label>
+                Scale
+                <input type="number" name="scale" value="{{ char.scale }}" step="0.01" min="0.1" max="2">
+            </label>
+        </div>
+        <label>
+            Per-shot positions (JSON)
+            <textarea name="positions_json" rows="6" placeholder='{"wide":[x,y,s], "closeup_left":[x,y,s], ...}'>{{ char.positions_json }}</textarea>
+        </label>
+    </fieldset>
+
+    <div class="flex-row">
+        <button type="submit">Save</button>
+        <a href="{{ base }}/admin/characters" role="button" class="outline secondary">Cancel</a>
+    </div>
+</form>
+
+<hr>
+
+<!-- Required Assets -->
+<fieldset>
+    <legend>Required Assets</legend>
+    <div class="grid">
+        <div>
+            <strong>idle.png</strong> (mouth closed)
+            {% if char.has_idle %}
+            <span class="badge badge-ok">OK</span>
+            <br><img src="{{ base }}/admin/characters/{{ char.id }}/asset/idle.png"
+                     alt="idle" style="max-height:120px;border-radius:4px;margin-top:0.5rem">
+            {% else %}
+            <span class="badge badge-err">Missing</span>
+            {% endif %}
+            <form method="post" action="{{ base }}/admin/characters/{{ char.id }}/upload"
+                  enctype="multipart/form-data" style="margin-top:0.5rem">
+                <input type="hidden" name="slot" value="idle">
+                <input type="file" name="file" accept=".png" required>
+                <button type="submit" class="btn-sm">Upload idle.png</button>
+            </form>
+        </div>
+        <div>
+            <strong>talking.png</strong> (mouth open)
+            {% if char.has_talking %}
+            <span class="badge badge-ok">OK</span>
+            <br><img src="{{ base }}/admin/characters/{{ char.id }}/asset/talking.png"
+                     alt="talking" style="max-height:120px;border-radius:4px;margin-top:0.5rem">
+            {% else %}
+            <span class="badge badge-err">Missing</span>
+            {% endif %}
+            <form method="post" action="{{ base }}/admin/characters/{{ char.id }}/upload"
+                  enctype="multipart/form-data" style="margin-top:0.5rem">
+                <input type="hidden" name="slot" value="talking">
+                <input type="file" name="file" accept=".png" required>
+                <button type="submit" class="btn-sm">Upload talking.png</button>
+            </form>
+        </div>
+    </div>
+</fieldset>
+
+<!-- Emotion Assets -->
+<fieldset>
+    <legend>Emotion Assets (optional)</legend>
+    {% if char.emotions %}
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Emotion</th><th>Variant</th><th>Preview</th><th>Actions</th></tr></thead>
+        <tbody>
+            {% for em in char.emotions %}
+            <tr>
+                <td>{{ em.name }}</td>
+                <td>{{ em.variant }}</td>
+                <td>
+                    <img src="{{ base }}/admin/characters/{{ char.id }}/asset/{{ em.filename }}"
+                         alt="{{ em.name }}" style="height:48px;border-radius:4px">
+                </td>
+                <td>
+                    <form method="post" action="{{ base }}/admin/characters/{{ char.id }}/delete-asset"
+                          class="inline-form" data-confirm="Delete {{ em.filename }}?">
+                        <input type="hidden" name="filename" value="{{ em.filename }}">
+                        <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-muted">No emotion variants uploaded yet.</p>
+    {% endif %}
+
+    <details>
+        <summary>Upload Emotion</summary>
+        <form method="post" action="{{ base }}/admin/characters/{{ char.id }}/upload"
+              enctype="multipart/form-data">
+            <div class="grid">
+                <label>
+                    Emotion name
+                    <input type="text" name="slot" required pattern="[a-z0-9_]+"
+                           placeholder="e.g. smile, half_open, concerned">
+                </label>
+                <label>
+                    Variant
+                    <select name="variant">
+                        <option value="idle">Idle (mouth closed)</option>
+                        <option value="talking">Talking (mouth open)</option>
+                    </select>
+                </label>
+            </div>
+            <input type="file" name="file" accept=".png" required>
+            <button type="submit" class="btn-sm">Upload Emotion</button>
+        </form>
+    </details>
+</fieldset>
+
+{% endblock %}

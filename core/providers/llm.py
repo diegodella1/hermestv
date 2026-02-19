@@ -173,11 +173,12 @@ async def generate_dialog_script(
     if not client:
         return None
 
-    from core.character_prompts import CHARACTER_PROMPTS, ORCHESTRATOR_PROMPT
+    from core.character_prompts import CHARACTER_PROMPTS, ORCHESTRATOR_PROMPT, get_character_prompts
 
-    # Build system prompt: orchestrator + character prompts
+    # Build system prompt: orchestrator + character prompts (DB with fallback)
+    all_prompts = await get_character_prompts()
     char_prompts = "\n\n".join(
-        CHARACTER_PROMPTS[c] for c in characters if c in CHARACTER_PROMPTS
+        all_prompts[c] for c in characters if c in all_prompts
     )
     # Rough estimate: ~10 lines per minute of dialog
     line_limit = max(6, int(duration_minutes * 10))

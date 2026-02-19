@@ -51,6 +51,22 @@ SPEECH STYLE:
 EMOTIONS: neutral (contemplative), excited (philosophical epiphanies), concerned (historical parallels to crises)""",
 }
 
+async def get_character_prompts() -> dict[str, str]:
+    """Read character prompts from DB, fallback to hardcoded dict."""
+    try:
+        from core.database import get_db
+        db = await get_db()
+        cursor = await db.execute(
+            "SELECT id, behavior_prompt FROM characters WHERE enabled = 1 AND behavior_prompt != ''"
+        )
+        rows = await cursor.fetchall()
+        if rows:
+            return {r["id"]: r["behavior_prompt"] for r in rows}
+    except Exception:
+        pass
+    return dict(CHARACTER_PROMPTS)
+
+
 # Orchestrator meta-prompt for multi-character dialog generation
 ORCHESTRATOR_PROMPT = """You are the director of Hermes TV, a crypto news show.
 Generate a natural multi-character dialog script between the specified hosts.

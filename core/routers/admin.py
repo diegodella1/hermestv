@@ -1,4 +1,4 @@
-"""Admin router — CRUD for cities, sources, hosts, settings + auth."""
+"""Admin router — CRUD for cities, sources, hosts, characters, settings + auth."""
 
 import hashlib
 import json
@@ -6,11 +6,11 @@ import re
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 
-from core.config import HERMES_API_KEY, BASE_PATH, HLS_VIDEO_DIR
+from core.config import HERMES_API_KEY, BASE_PATH, HLS_VIDEO_DIR, ASSETS_DIR
 from core.database import get_db
 
 router = APIRouter(tags=["admin"])
@@ -679,3 +679,221 @@ async def visual_guide_page(request: Request, _=Depends(require_api_key)):
 @router.get("/admin/breaking", response_class=HTMLResponse)
 async def breaking_page(request: Request, _=Depends(require_api_key)):
     return templates.TemplateResponse("breaking.html", _template_ctx(request, "breaking"))
+
+
+# --- Characters ---
+_PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
+_MAX_UPLOAD = 5 * 1024 * 1024  # 5 MB
+
+
+def _char_assets_dir(char_id: str) -> Path:
+    return Path(ASSETS_DIR) / "characters" / char_id
+
+
+def _scan_emotions(char_id: str) -> list[dict]:
+    """Scan character dir for emotion PNGs (e.g. smile_idle.png)."""
+    d = _char_assets_dir(char_id)
+    emotions = []
+    if not d.exists():
+        return emotions
+    for f in sorted(d.iterdir()):
+        if f.suffix != ".png" or f.name in ("idle.png", "talking.png"):
+            continue
+        # emotion files: {emotion}_{variant}.png
+        parts = f.stem.rsplit("_", 1)
+        if len(parts) == 2 and parts[1] in ("idle", "talking"):
+            emotions.append({"name": parts[0], "variant": parts[1], "filename": f.name})
+    return emotions
+
+
+@router.get("/admin/characters", response_class=HTMLResponse)
+async def characters_page(request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM characters ORDER BY id")
+    rows = [dict(r) for r in await cursor.fetchall()]
+
+    # Host labels for display
+    cursor = await db.execute("SELECT id, label FROM hosts")
+    host_map = {r["id"]: r["label"] for r in await cursor.fetchall()}
+
+    for ch in rows:
+        d = _char_assets_dir(ch["id"])
+        ch["has_idle"] = (d / "idle.png").exists()
+        ch["has_talking"] = (d / "talking.png").exists()
+        ch["emotion_count"] = len(_scan_emotions(ch["id"]))
+        ch["host_label"] = host_map.get(ch.get("host_id", ""), "")
+
+    return templates.TemplateResponse("characters.html", _template_ctx(
+        request, "characters", characters=rows,
+    ))
+
+
+@router.post("/admin/characters")
+async def create_character(request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+
+    raw_id = form.get("id", "").strip()
+    char_id = re.sub(r'[^a-z0-9_-]', '', raw_id.lower())
+    if not char_id:
+        return _redirect("/admin/characters?flash=Invalid+character+ID&flash_type=error")
+
+    cursor = await db.execute("SELECT id FROM characters WHERE id = ?", (char_id,))
+    if await cursor.fetchone():
+        from urllib.parse import quote
+        return _redirect(f"/admin/characters?flash={quote(f'ID {char_id} already exists')}&flash_type=error")
+
+    label = form.get("label", char_id).strip()
+    await db.execute(
+        "INSERT INTO characters (id, label) VALUES (?, ?)",
+        (char_id, label),
+    )
+    await db.commit()
+
+    # Create asset dir
+    _char_assets_dir(char_id).mkdir(parents=True, exist_ok=True)
+
+    return _redirect(f"/admin/characters/{char_id}?flash=Character+created&flash_type=success")
+
+
+@router.get("/admin/characters/{char_id}", response_class=HTMLResponse)
+async def edit_character_page(char_id: str, request: Request, _=Depends(require_api_key)):
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM characters WHERE id = ?", (char_id,))
+    row = await cursor.fetchone()
+    if not row:
+        return _redirect("/admin/characters?flash=Character+not+found&flash_type=error")
+
+    ch = dict(row)
+    d = _char_assets_dir(char_id)
+    ch["has_idle"] = (d / "idle.png").exists()
+    ch["has_talking"] = (d / "talking.png").exists()
+    ch["emotions"] = _scan_emotions(char_id)
+
+    # Hosts for dropdown
+    cursor = await db.execute("SELECT id, label FROM hosts ORDER BY id")
+    hosts = [dict(r) for r in await cursor.fetchall()]
+
+    return templates.TemplateResponse("character_edit.html", _template_ctx(
+        request, "characters", char=ch, hosts=hosts,
+    ))
+
+
+@router.post("/admin/characters/{char_id}")
+async def update_character(char_id: str, request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    db = await get_db()
+
+    cursor = await db.execute("SELECT id FROM characters WHERE id = ?", (char_id,))
+    if not await cursor.fetchone():
+        return _redirect("/admin/characters?flash=Character+not+found&flash_type=error")
+
+    await db.execute(
+        """UPDATE characters SET
+           label = ?, gender = ?, age = ?, behavior_prompt = ?,
+           piper_model = ?, host_id = ?,
+           position_x = ?, position_y = ?, scale = ?,
+           positions_json = ?, enabled = ?
+           WHERE id = ?""",
+        (
+            form.get("label", ""),
+            form.get("gender", ""),
+            int(form.get("age", 0) or 0),
+            form.get("behavior_prompt", ""),
+            form.get("piper_model", "en_US-lessac-high"),
+            form.get("host_id", ""),
+            float(form.get("position_x", 0.5) or 0.5),
+            float(form.get("position_y", 0.85) or 0.85),
+            float(form.get("scale", 0.9) or 0.9),
+            form.get("positions_json", "{}"),
+            1 if form.get("enabled") == "on" else 0,
+            char_id,
+        ),
+    )
+    await db.commit()
+
+    # Sync config.json
+    cursor = await db.execute("SELECT * FROM characters WHERE id = ?", (char_id,))
+    row = dict(await cursor.fetchone())
+    from core.services.character_sync import sync_character_config
+    sync_character_config(char_id, row)
+
+    return _redirect(f"/admin/characters/{char_id}?flash=Character+saved&flash_type=success")
+
+
+@router.post("/admin/characters/{char_id}/upload")
+async def upload_character_asset(char_id: str, request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    file = form.get("file")
+    slot = form.get("slot", "")  # "idle", "talking", or emotion like "smile_idle"
+
+    if not file or not hasattr(file, "read"):
+        return _redirect(f"/admin/characters/{char_id}?flash=No+file+provided&flash_type=error")
+
+    data = await file.read()
+
+    # Validate PNG
+    if not data[:8] == _PNG_MAGIC:
+        return _redirect(f"/admin/characters/{char_id}?flash=File+must+be+PNG&flash_type=error")
+    if len(data) > _MAX_UPLOAD:
+        return _redirect(f"/admin/characters/{char_id}?flash=File+too+large+(5MB+max)&flash_type=error")
+
+    # Determine filename
+    if slot in ("idle", "talking"):
+        filename = f"{slot}.png"
+    else:
+        # Emotion upload: slot = emotion name, variant from form
+        emotion_name = re.sub(r'[^a-z0-9_]', '', slot.lower())
+        variant = form.get("variant", "idle")
+        if variant not in ("idle", "talking"):
+            variant = "idle"
+        if not emotion_name:
+            return _redirect(f"/admin/characters/{char_id}?flash=Invalid+emotion+name&flash_type=error")
+        filename = f"{emotion_name}_{variant}.png"
+
+    d = _char_assets_dir(char_id)
+    d.mkdir(parents=True, exist_ok=True)
+    (d / filename).write_bytes(data)
+
+    return _redirect(f"/admin/characters/{char_id}?flash=Asset+uploaded&flash_type=success")
+
+
+@router.get("/admin/characters/{char_id}/asset/{filename}")
+async def serve_character_asset(char_id: str, filename: str, _=Depends(require_api_key)):
+    # Sanitize
+    safe_name = Path(filename).name
+    if not safe_name.endswith(".png"):
+        raise HTTPException(404)
+    fpath = _char_assets_dir(char_id) / safe_name
+    if not fpath.exists():
+        raise HTTPException(404)
+    return FileResponse(fpath, media_type="image/png")
+
+
+@router.post("/admin/characters/{char_id}/delete-asset")
+async def delete_character_asset(char_id: str, request: Request, _=Depends(require_api_key)):
+    form = await request.form()
+    filename = form.get("filename", "")
+
+    # Cannot delete required assets
+    if filename in ("idle.png", "talking.png"):
+        return _redirect(f"/admin/characters/{char_id}?flash=Cannot+delete+required+asset&flash_type=error")
+
+    safe_name = Path(filename).name
+    if not safe_name.endswith(".png"):
+        return _redirect(f"/admin/characters/{char_id}?flash=Invalid+file&flash_type=error")
+
+    fpath = _char_assets_dir(char_id) / safe_name
+    if fpath.exists():
+        fpath.unlink()
+
+    return _redirect(f"/admin/characters/{char_id}?flash=Asset+deleted&flash_type=success")
+
+
+@router.post("/admin/characters/{char_id}/delete")
+async def delete_character(char_id: str, _=Depends(require_api_key)):
+    db = await get_db()
+    await db.execute("DELETE FROM characters WHERE id = ?", (char_id,))
+    await db.commit()
+    # Note: we don't delete asset files — they can be reused
+    return _redirect("/admin/characters?flash=Character+deleted&flash_type=success")

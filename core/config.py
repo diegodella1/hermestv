@@ -24,6 +24,9 @@ BASE_PATH = os.environ.get("HERMES_BASE_PATH", "").rstrip("/")
 # Piper TTS
 PIPER_BIN = os.environ.get("PIPER_BIN", "/usr/local/bin/piper")
 
+# Assets (characters, backgrounds)
+ASSETS_DIR = Path(os.environ.get("HERMES_ASSETS_DIR", str(BASE_DIR / "assets")))
+
 # Breaks directory
 BREAKS_DIR = DATA_DIR / "breaks"
 STINGS_DIR = DATA_DIR / "stings"

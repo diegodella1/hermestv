@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Characters — Hermes TV{% endblock %}
+{% block content %}
+<h2>Characters</h2>
+
+{% if characters %}
+<div class="table-wrap">
+<table>
+    <thead>
+        <tr>
+            <th scope="col">Preview</th>
+            <th scope="col">ID</th>
+            <th scope="col">Label</th>
+            <th scope="col">Voice</th>
+            <th scope="col">Host</th>
+            <th scope="col">Assets</th>
+            <th scope="col">Emotions</th>
+            <th scope="col">Enabled</th>
+            <th scope="col">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ch in characters %}
+        <tr>
+            <td>
+                {% if ch.has_idle %}
+                <img src="{{ base }}/admin/characters/{{ ch.id }}/asset/idle.png"
+                     alt="{{ ch.label }}" style="height:48px;border-radius:4px">
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+            </td>
+            <td><code>{{ ch.id }}</code></td>
+            <td>{{ ch.label }}</td>
+            <td><small>{{ ch.piper_model }}</small></td>
+            <td>{{ ch.host_label or '—' }}</td>
+            <td>
+                {% if ch.has_idle and ch.has_talking %}
+                <span class="badge badge-ok">OK</span>
+                {% else %}
+                <span class="badge badge-err">Missing</span>
+                {% endif %}
+            </td>
+            <td>{{ ch.emotion_count }}</td>
+            <td>{{ 'Yes' if ch.enabled else 'No' }}</td>
+            <td>
+                <div class="flex-row-tight">
+                    <a href="{{ base }}/admin/characters/{{ ch.id }}" role="button" class="outline btn-sm">Edit</a>
+                    <form method="post" action="{{ base }}/admin/characters/{{ ch.id }}/delete" class="inline-form"
+                          data-confirm="Delete {{ ch.label|e }}?">
+                        <button type="submit" class="outline secondary btn-sm btn-danger">Delete</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="empty-state">No characters configured yet.</p>
+{% endif %}
+
+<details>
+    <summary>Add Character</summary>
+    <form method="post" action="{{ base }}/admin/characters">
+        <div class="grid">
+            <label>
+                ID (slug)
+                <input type="text" name="id" required pattern="[a-z0-9_-]+"
+                       placeholder="e.g. dani, alex_2">
+            </label>
+            <label>
+                Label
+                <input type="text" name="label" required placeholder="Display name">
+            </label>
+        </div>
+        <button type="submit">Add Character</button>
+    </form>
+</details>
+{% endblock %}

@@ -6,6 +6,7 @@ Supports two modes:
 """
 
 import os
+import sqlite3
 import tempfile
 import time
 from pathlib import Path
@@ -17,18 +18,73 @@ from visual.director import generate_edl
 from visual.ffmpeg_utils import probe_duration_ms
 from visual.models import Script, Scene, DialogLine
 
-# Map host IDs to visual character IDs
+# Map host IDs to visual character IDs (fallback)
 HOST_TO_CHARACTER = {
     "host_a": "alex",   # Luna → alex
     "host_b": "maya",   # Max → maya
 }
 
-# Voice config per character (piper model names)
+# Voice config per character — fallback (piper model names)
 CHARACTER_VOICE = {
     "alex": {"piper_model": "en_US-lessac-high"},
     "maya": {"piper_model": "en_US-ryan-high"},
     "rolo": {"piper_model": "en_US-lessac-high"},  # placeholder
 }
+
+# --- DB readers with 30s cache (sync sqlite3, bridge runs in thread executor) ---
+_cache: dict = {}
+_CACHE_TTL = 30
+
+
+def _get_db_path() -> str:
+    try:
+        from core.config import DB_PATH
+        return str(DB_PATH)
+    except Exception:
+        return ""
+
+
+def _read_characters() -> list[dict]:
+    """Read all enabled characters from DB (sync). Cached 30s."""
+    now = time.time()
+    if "_chars" in _cache and now - _cache["_chars_t"] < _CACHE_TTL:
+        return _cache["_chars"]
+
+    db_path = _get_db_path()
+    if not db_path or not os.path.exists(db_path):
+        return []
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=2)
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            "SELECT id, host_id, piper_model FROM characters WHERE enabled = 1"
+        ).fetchall()
+        conn.close()
+        result = [dict(r) for r in rows]
+        _cache["_chars"] = result
+        _cache["_chars_t"] = now
+        return result
+    except Exception:
+        return []
+
+
+def get_host_character(host_id: str) -> str:
+    """Resolve host_id → character_id via DB, fallback to dict."""
+    chars = _read_characters()
+    for ch in chars:
+        if ch.get("host_id") == host_id:
+            return ch["id"]
+    return HOST_TO_CHARACTER.get(host_id, "alex")
+
+
+def get_voice_config(char_id: str) -> dict:
+    """Get voice config for character from DB, fallback to dict."""
+    chars = _read_characters()
+    for ch in chars:
+        if ch["id"] == char_id:
+            return {"piper_model": ch.get("piper_model", "en_US-lessac-high")}
+    return CHARACTER_VOICE.get(char_id, CHARACTER_VOICE["alex"])
 
 
 def _extract_transitions(edl) -> list[str]:
@@ -63,7 +119,7 @@ def render_break_video(
     t0 = time.time()
 
     try:
-        char_id = HOST_TO_CHARACTER.get(host_id, "alex")
+        char_id = get_host_character(host_id)
         duration_ms = probe_duration_ms(audio_path)
 
         script = Script(
@@ -133,7 +189,7 @@ def synthesize_dialog(dialog_script: dict, output_dir: str) -> dict:
     for scene in dialog_script.get("scenes", []):
         for line in scene.get("lines", []):
             char_id = line["character"]
-            voice_cfg = CHARACTER_VOICE.get(char_id, CHARACTER_VOICE["alex"])
+            voice_cfg = get_voice_config(char_id)
 
             audio_path, duration_ms = synthesize_line(
                 text=line["text"],
